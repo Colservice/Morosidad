@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Registro de Morosidad</title>
+
+<!-- ============================================================
+     CONFIGURACIÓN: completá estas 3 líneas más abajo, dentro
+     del <script> al final del archivo, buscá "CONFIGURACIÓN".
+     ============================================================ -->
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f8fafc; --card:#ffffff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b;
+    --dark:#0f172a; --teal:#0d9488; --teal-dark:#0f766e; --teal-light:#f0fdfa;
+    --rose:#e11d48; --rose-light:#fff1f2; --emerald:#059669;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+  .font-display{font-family:'Newsreader',serif;}
+  .font-num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+  a{color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  header.app-header{background:var(--dark);color:#fff;}
+  .header-inner{max-width:1100px;margin:0 auto;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-badge{width:36px;height:36px;border-radius:8px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--dark);}
+  .brand h1{font-size:19px;margin:0;line-height:1;}
+  .brand p{font-size:12px;color:#94a3b8;margin:4px 0 0;}
+  .nav{display:flex;background:#1e293b;border-radius:8px;padding:4px;gap:2px;}
+  .nav button{background:transparent;border:none;color:#cbd5e1;padding:7px 12px;border-radius:6px;font-size:13px;font-weight:500;}
+  .nav button.active{background:var(--teal);color:var(--dark);}
+  .btn-ghost{display:flex;align-items:center;gap:6px;background:transparent;border:none;color:#cbd5e1;padding:7px 12px;border-radius:6px;font-size:13px;}
+  .btn-ghost:hover{background:#1e293b;color:#fff;}
+
+  main{max-width:1100px;margin:0 auto;padding:32px 24px;}
+  .narrow{max-width:640px;}
+
+  h2.section-title{font-family:'Newsreader',serif;font-size:22px;margin:0 0 6px;}
+  .section-sub{color:var(--muted);font-size:14px;margin:0 0 20px;}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;}
+  .pad{padding:16px;}
+
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  @media(max-width:800px){ .grid-4{grid-template-columns:repeat(2,1fr);} .grid-3{grid-template-columns:1fr;} .grid-2{grid-template-columns:1fr;} }
+
+  .stat-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .stat-value{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;margin-top:6px;}
+  .stat-head{display:flex;align-items:center;justify-content:space-between;}
+  .stat-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .stat-icon.rose{background:var(--rose-light);color:var(--rose);}
+  .stat-icon.slate{background:#f1f5f9;color:#475569;}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-family:'IBM Plex Mono',monospace;}
+  .chip-sm{font-size:11px;}
+  .chip.danger{color:var(--rose);}
+  .chip.success{color:var(--emerald);}
+  .chip.muted{color:#94a3b8;}
+
+  .filter-bar{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;}
+  .filter-group{display:flex;flex-direction:column;gap:6px;}
+  .filter-group label.title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .check-list{display:flex;flex-wrap:wrap;gap:6px;max-width:260px;}
+  .check-pill{display:flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:12px;background:#fff;}
+  .search-wrap{position:relative;flex:1;min-width:200px;}
+  .search-wrap input{width:100%;padding:9px 12px 9px 30px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;}
+  .search-wrap span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;}
+  select{border:1px solid #cbd5e1;border-radius:8px;padding:9px 10px;font-size:13px;background:#fff;}
+  .btn{border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:13px;background:#fff;display:inline-flex;align-items:center;gap:6px;}
+  .btn:hover{background:#f8fafc;}
+  .btn-primary{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600;width:100%;justify-content:center;padding:12px;border-radius:10px;font-size:14px;}
+  .btn-primary:hover{background:var(--teal-dark);}
+  .btn-primary:disabled{background:#cbd5e1;border-color:#cbd5e1;cursor:not-allowed;}
+
+  .client-row{border-bottom:1px solid #f1f5f9;}
+  .client-row:last-child{border-bottom:none;}
+  .client-head{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:none;border:none;text-align:left;}
+  .client-head:hover{background:#f8fafc;}
+  .client-name{font-weight:500;font-size:14px;}
+  .client-sub{font-size:12px;color:#94a3b8;}
+  .client-detail{display:none;padding:4px 18px 18px;background:#f8fafc99;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead tr{background:#f8fafc;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+  th,td{padding:8px 12px;text-align:left;}
+  th.r,td.r{text-align:right;}
+  tbody tr{border-top:1px solid #f1f5f9;}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:#fff;margin-bottom:14px;}
+  .badge{font-size:11px;padding:2px 9px;border-radius:20px;background:#f1f5f9;color:#475569;}
+  .badge.teal{background:var(--teal-light);color:var(--teal-dark);}
+
+  .banner{display:flex;align-items:flex-start;gap:8px;border-radius:10px;padding:11px 14px;font-size:13px;margin-bottom:20px;}
+  .banner.info{background:var(--teal-light);color:var(--teal-dark);border:1px solid #99f6e4;}
+  .banner.error{background:var(--rose-light);color:#be123c;border:1px solid #fecdd3;}
+  .banner.notice{background:var(--teal-light);color:var(--teal-dark);border:1px solid #99f6e4;}
+
+  .dropzone{border:2px dashed #cbd5e1;border-radius:10px;padding:22px;text-align:center;cursor:pointer;background:#fff;}
+  .dropzone.filled{border-color:var(--teal);background:var(--teal-light);}
+  .dropzone .circle{width:40px;height:40px;border-radius:50%;background:#f1f5f9;color:#94a3b8;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:18px;}
+  .dropzone.filled .circle{background:var(--teal);color:#fff;}
+  .dropzone .label{font-weight:500;font-size:14px;}
+  .dropzone .hint{font-size:12px;color:#94a3b8;margin-top:2px;}
+  .dropzone .filename{font-size:12px;color:var(--teal-dark);margin-top:6px;}
+
+  .auth-card{max-width:360px;margin:80px auto;padding:28px;}
+  .auth-card input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin:14px 0;}
+
+  .spin{display:inline-block;animation:spin 0.9s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .empty{padding:40px;text-align:center;color:#94a3b8;font-size:13.5px;}
+  .muted-italic{font-style:italic;color:#94a3b8;font-size:13.5px;}
+  .chart-box{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:18px;height:280px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ===================================================================
+   CONFIGURACIÓN — completá estas 3 líneas con tus propios datos.
+   Podés editarlas directamente en GitHub sin bajar el archivo.
+   =================================================================== */
+const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+const APP_PASSWORD = "cambiar-esta-clave"; // clave compartida para entrar al panel
+/* =================================================================== */
+
+// ---------- helpers ----------
+function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function normName(s){ return (s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,' ').trim(); }
+function money(n){ return (n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}); }
+function shortDate(d){ if(!d) return '—'; const dt = d instanceof Date ? d : new Date(d); if(isNaN(dt)) return '—'; return dt.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function toggleSetItem(set,val){ if(set.has(val)) set.delete(val); else set.add(val); }
+
+function readWorkbook(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        resolve(rows);
+      } catch(err){ reject(err); }
+    };
+    reader.onerror = ()=> reject(new Error('No se pudo leer el archivo'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseDeudores(rows){
+  const clients = new Map();
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r || r[0]==null || r[0]==='') continue;
+    const displayName = String(r[0]).trim();
+    const key = normName(displayName);
+    const contract = {
+      id: (r[1]+'-'+r[2]), grupo:r[1], orden:r[2],
+      estado:(r[3]||'').toString().trim(), gerencia:(r[4]||'').toString().trim(),
+      totalPagadas:Number(r[5])||0, totalAdeudado:Number(r[6])||0,
+      valorTotalImpago:Number(r[8])||0, valorTotalPrecancelable:Number(r[10])||0,
+    };
+    if(!clients.has(key)) clients.set(key,{key,displayName,contracts:[]});
+    clients.get(key).contracts.push(contract);
+  }
+  return clients;
+}
+
+function parseRecibos(rows){
+  const byClient = new Map();
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r || r[2]==null) continue;
+    if((r[6]||'').toString().trim() !== 'Registrado') continue;
+    const key = normName(r[2]);
+    const payment = { fecha: r[4] instanceof Date ? r[4] : (r[4]? new Date(r[4]):null), numeroRecibo:r[3]||'', monto:Number(r[9])||0 };
+    if(!byClient.has(key)) byClient.set(key,[]);
+    byClient.get(key).push(payment);
+  }
+  for(const list of byClient.values()) list.sort((a,b)=> (b.fecha?b.fecha.getTime():0)-(a.fecha?a.fecha.getTime():0));
+  return byClient;
+}
+
+function buildClients(deudoresMap, recibosMap){
+  const out=[];
+  for(const c of deudoresMap.values()){
+    const payments = (recibosMap.get(c.key)||[]).slice(0,3);
+    out.push(Object.assign({}, c, {payments}));
+  }
+  return out;
+}
+
+function snapshotFromClients(clients, date){
+  const byClient = {};
+  for(const c of clients){
+    const contracts = {};
+    for(const ct of c.contracts){
+      contracts[ct.id] = {estado:ct.estado, gerencia:ct.gerencia, totalPagadas:ct.totalPagadas, totalAdeudado:ct.totalAdeudado, valorTotalImpago:ct.valorTotalImpago, valorTotalPrecancelable:ct.valorTotalPrecancelable};
+    }
+    byClient[c.key] = {
+      displayName:c.displayName, contracts,
+      payments:(c.payments||[]).map(p=>({fecha: p.fecha? p.fecha.toISOString(): null, numeroRecibo:p.numeroRecibo, monto:p.monto}))
+    };
+  }
+  return {date, clients:byClient};
+}
+
+function clientsFromSnapshot(snap){
+  return Object.entries(snap.clients).map(([key,c])=>{
+    const contracts = Object.entries(c.contracts).map(([id,ct])=>{
+      const idx = id.indexOf('-'); const grupo = id.slice(0,idx); const orden = id.slice(idx+1);
+      return Object.assign({id, grupo, orden}, ct);
+    });
+    const payments = (c.payments||[]).map(p=>({fecha: p.fecha? new Date(p.fecha): null, numeroRecibo:p.numeroRecibo, monto:p.monto}));
+    return {key, displayName:c.displayName, contracts, payments};
+  });
+}
+
+function aggregateSnapshot(snap){
+  let impago=0, precancelable=0, adeudado=0, contratos=0, clientesEnMora=0;
+  for(const c of Object.values(snap.clients)){
+    let clienteImpago=0;
+    for(const ct of Object.values(c.contracts)){
+      impago+=ct.valorTotalImpago; precancelable+=ct.valorTotalPrecancelable; adeudado+=ct.totalAdeudado; contratos+=1; clienteImpago+=ct.valorTotalImpago;
+    }
+    if(clienteImpago>0) clientesEnMora+=1;
+  }
+  return {date:snap.date, impago, precancelable, adeudado, contratos, clientesEnMora, clientes:Object.keys(snap.clients).length};
+}
+
+// ---------- Supabase ----------
+let sb = null;
+function configLooksValid(){
+  return SUPABASE_URL && !SUPABASE_URL.includes('PEGA_AQUI') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('PEGA_AQUI');
+}
+async function listSnapshotDates(){
+  const {data, error} = await sb.from('snapshots').select('date').order('date',{ascending:true});
+  if(error) throw error;
+  return (data||[]).map(r=>r.date);
+}
+async function getSnapshot(date){
+  const {data, error} = await sb.from('snapshots').select('data').eq('date', date).maybeSingle();
+  if(error) throw error;
+  return data ? data.data : null;
+}
+async function saveSnapshot(date, snap){
+  const {error} = await sb.from('snapshots').upsert({date, data:snap});
+  if(error) throw error;
+}
+
+// ---------- state ----------
+const state = {
+  booting:true, configOk:false, dbOk:true, authed:false,
+  view:'upload',
+  deudoresFile:null, recibosFile:null, cutoffDate:todayISO(),
+  loading:false, error:'', notice:'',
+  clients:[], prevSnapshot:null, snapshotDates:[],
+  search:'', sortField:'deuda', sortDir:'desc',
+  estadoFilter:new Set(), gerenciaFilter:new Set(),
+  trackClientKey:'', trackHistory:[], trackLoading:false,
+  generalHistory:[], generalLoading:false, generalLoaded:false,
+};
+let generalChart=null, trackChart=null;
+
+function clientPrevImpago(key){
+  const p = state.prevSnapshot && state.prevSnapshot.clients ? state.prevSnapshot.clients[key] : null;
+  if(!p) return null;
+  return Object.values(p.contracts).reduce((s,x)=>s+x.valorTotalImpago,0);
+}
+function contractPrev(key, contractId){
+  const c = state.prevSnapshot && state.prevSnapshot.clients ? state.prevSnapshot.clients[key] : null;
+  return (c && c.contracts && c.contracts[contractId]) || null;
+}
+function deltaChipHtml(curr, prev, small){
+  const cls = small ? 'chip chip-sm' : 'chip';
+  if(prev==null) return '<span class="'+cls+' muted">− sin dato previo</span>';
+  const diff = curr - prev;
+  if(Math.abs(diff) < 0.5) return '<span class="'+cls+' muted">− sin cambios</span>';
+  const up = diff > 0;
+  return '<span class="'+cls+' '+(up?'danger':'success')+'">'+(up?'▲':'▼')+' '+(up?'+':'-')+esc(money(Math.abs(diff)))+'</span>';
+}
+
+function getFilteredClients(){
+  let list = state.clients.map(c=>{
+    const contractsFiltered = c.contracts.filter(ct=> state.estadoFilter.has(ct.estado) && state.gerenciaFilter.has(ct.gerencia));
+    const totalImpago = contractsFiltered.reduce((s,x)=>s+x.valorTotalImpago,0);
+    const totalPrecancelable = contractsFiltered.reduce((s,x)=>s+x.valorTotalPrecancelable,0);
+    return Object.assign({}, c, {contractsFiltered, totalImpago, totalPrecancelable});
+  }).filter(c=>c.contractsFiltered.length>0);
+
+  if(state.search.trim()){
+    const q = normName(state.search);
+    list = list.filter(c=> normName(c.displayName).includes(q));
+  }
+  const dir = state.sortDir==='asc' ? 1 : -1;
+  list.sort((a,b)=>{
+    if(state.sortField==='nombre') return dir*a.displayName.localeCompare(b.displayName);
+    if(state.sortField==='planes') return dir*(a.contractsFiltered.length-b.contractsFiltered.length);
+    if(state.sortField==='variacion'){
+      const pa=clientPrevImpago(a.key), pb=clientPrevImpago(b.key);
+      const da=a.totalImpago-(pa==null?a.totalImpago:pa), db=b.totalImpago-(pb==null?b.totalImpago:pb);
+      return dir*(da-db);
+    }
+    return dir*(a.totalImpago-b.totalImpago);
+  });
+  return list;
+}
+
+// ---------- data actions ----------
+async function handleProcess(){
+  state.error=''; state.notice='';
+  if(!state.deudoresFile || !state.recibosFile){ state.error='Subí los dos archivos antes de procesar.'; render(); return; }
+  state.loading = true; render();
+  try{
+    const [deudoresRows, recibosRows] = await Promise.all([readWorkbook(state.deudoresFile), readWorkbook(state.recibosFile)]);
+    const deudoresMap = parseDeudores(deudoresRows);
+    const recibosMap = parseRecibos(recibosRows);
+    if(deudoresMap.size===0) throw new Error('No encontré filas de deudores en el archivo DEUDORES.');
+    const built = buildClients(deudoresMap, recibosMap);
+
+    const dates = await listSnapshotDates();
+    const priorDates = dates.filter(d=>d<state.cutoffDate).sort();
+    let prev = null;
+    if(priorDates.length>0){
+      try{ prev = await getSnapshot(priorDates[priorDates.length-1]); }catch(e){}
+    }
+    const snap = snapshotFromClients(built, state.cutoffDate);
+    const already = dates.includes(state.cutoffDate);
+    await saveSnapshot(state.cutoffDate, snap);
+    state.snapshotDates = await listSnapshotDates();
+    state.generalLoaded = false;
+
+    state.clients = built;
+    state.prevSnapshot = prev;
+    const estadoOpts = Array.from(new Set(built.flatMap(c=>c.contracts.map(ct=>ct.estado)))).sort();
+    const gerenciaOpts = Array.from(new Set(built.flatMap(c=>c.contracts.map(ct=>ct.gerencia)))).sort();
+    state.estadoFilter = new Set(estadoOpts);
+    state.gerenciaFilter = new Set(gerenciaOpts);
+    state.search='';
+
+    state.notice = already
+      ? 'Actualicé la foto compartida del '+shortDate(state.cutoffDate)+' (ya existía una carga para esa fecha).'
+      : 'Guardé la foto compartida del '+shortDate(state.cutoffDate)+'. Cualquiera que abra esta página va a poder verla.';
+    state.view='dashboard';
+  } catch(e){
+    state.error = (e && e.message) ? e.message : 'Ocurrió un error al procesar los archivos.';
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+function resetToUpload(){
+  state.view='upload'; state.deudoresFile=null; state.recibosFile=null;
+  state.error=''; state.notice=''; state.cutoffDate=todayISO();
+  render();
+}
+
+async function loadTrackHistory(key){
+  state.trackLoading = true; state.trackHistory=[]; render();
+  try{
+    const recent = state.snapshotDates.slice(-60);
+    const results=[];
+    for(const d of recent){
+      try{
+        const snap = await getSnapshot(d);
+        if(!snap) continue;
+        const c = snap.clients[key];
+        if(!c) continue;
+        const vals = Object.values(c.contracts);
+        results.push({date:d, impago:vals.reduce((s,x)=>s+x.valorTotalImpago,0), precancelable:vals.reduce((s,x)=>s+x.valorTotalPrecancelable,0), adeudado:vals.reduce((s,x)=>s+x.totalAdeudado,0)});
+      }catch(e){}
+    }
+    state.trackHistory = results;
+  } finally { state.trackLoading=false; render(); }
+}
+
+async function loadGeneralHistory(){
+  state.generalLoading = true; render();
+  try{
+    const dates = await listSnapshotDates();
+    state.snapshotDates = dates;
+    const recent = dates.slice(-90);
+    const results=[];
+    for(const d of recent){
+      try{ const snap = await getSnapshot(d); if(snap) results.push(aggregateSnapshot(snap)); }catch(e){}
+    }
+    state.generalHistory = results;
+    state.generalLoaded = true;
+  } finally { state.generalLoading=false; render(); }
+}
+
+function handleAuthSubmit(){
+  const val = document.getElementById('auth-password').value;
+  if(val === APP_PASSWORD){
+    localStorage.setItem('morosidad_auth','ok');
+    state.authed = true;
+    render();
+  } else {
+    document.getElementById('auth-error').style.display='block';
+  }
+}
+
+// ---------- render ----------
+const root = document.getElementById('app');
+
+function render(){
+  root.innerHTML = '';
+  if(state.booting){ root.innerHTML = '<div class="empty"><span class="spin">⟳</span> Cargando...</div>'; return; }
+  if(!state.configOk){ root.innerHTML = buildConfigNeeded(); return; }
+  if(!state.dbOk){ root.innerHTML = buildDbNeeded(); return; }
+  if(!state.authed){ root.innerHTML = buildAuth(); attachAuthEvents(); return; }
+
+  let html = buildHeader();
+  if(state.view==='upload') html += buildUpload();
+  else if(state.view==='dashboard') html += buildDashboard();
+  else if(state.view==='mora-general') html += buildMoraGeneral();
+  else if(state.view==='seguimiento') html += buildSeguimiento();
+  root.innerHTML = html;
+  attachEvents();
+  if(state.view==='mora-general') drawGeneralChart();
+  if(state.view==='seguimiento') drawTrackChart();
+}
+
+function buildConfigNeeded(){
+  return '<div class="card auth-card"><h2 class="section-title">Falta configurar la app</h2>'+
+    '<p class="section-sub">Abrí este archivo en GitHub, hacé click en el lápiz (editar) y completá <code>SUPABASE_URL</code> y <code>SUPABASE_ANON_KEY</code> al principio del bloque de código, dentro de la sección marcada "CONFIGURACIÓN".</p></div>';
+}
+function buildDbNeeded(){
+  return '<div class="card auth-card"><h2 class="section-title">No pude conectar a la base de datos</h2>'+
+    '<p class="section-sub">Revisá que hayas creado la tabla <code>snapshots</code> en Supabase con el script SQL que te dieron, y que la URL y la clave estén bien copiadas.</p></div>';
+}
+function buildAuth(){
+  return '<div class="card auth-card"><h2 class="section-title">Registro de Morosidad</h2>'+
+    '<p class="section-sub">Ingresá la clave de acceso compartida.</p>'+
+    '<input type="password" id="auth-password" placeholder="Clave de acceso" />'+
+    '<div id="auth-error" class="banner error" style="display:none;">Clave incorrecta.</div>'+
+    '<button class="btn btn-primary" data-action="auth-submit">Entrar</button></div>';
+}
+function attachAuthEvents(){
+  document.getElementById('auth-password').addEventListener('keydown', e=>{ if(e.key==='Enter') handleAuthSubmit(); });
+}
+
+function buildHeader(){
+  const tabs = state.view==='upload' ? '' :
+    '<div class="nav">'+
+      '<button data-action="goto" data-view="dashboard" class="'+(state.view==='dashboard'?'active':'')+'">Resumen</button>'+
+      '<button data-action="goto" data-view="mora-general" class="'+(state.view==='mora-general'?'active':'')+'">Mora general</button>'+
+      '<button data-action="goto" data-view="seguimiento" class="'+(state.view==='seguimiento'?'active':'')+'">Por cliente</button>'+
+    '</div><button class="btn-ghost" data-action="reset-upload">⬆ Nueva carga</button>';
+  return '<header class="app-header"><div class="header-inner">'+
+    '<div class="brand"><div class="brand-badge">M</div><div><h1 class="font-display">Registro de Morosidad</h1>'+
+    '<p>Cruce diario de deudores y pagos · datos compartidos con tu equipo</p></div></div>'+
+    (state.view!=='upload' ? '<div style="display:flex;align-items:center;gap:8px;">'+tabs+'</div>' : '')+
+    '</div></header><main>';
+}
+
+function buildUpload(){
+  const lastNotice = state.snapshotDates.length ?
+    '<div class="chip" style="color:#64748b;background:#fff;border:1px solid var(--border);border-radius:8px;padding:7px 12px;width:fit-content;margin-bottom:20px;">⏱ Última foto guardada: <b class="font-num">'+esc(shortDate(state.snapshotDates[state.snapshotDates.length-1]))+'</b> · '+state.snapshotDates.length+' foto(s) en total</div>' : '';
+  return '<div class="narrow">'+
+    '<h2 class="section-title">Cargar archivos del día</h2>'+
+    '<p class="section-sub">Subí el archivo de deudores y el de recibos. Se guarda una foto compartida con la fecha de corte, visible para cualquiera que entre a esta página.</p>'+
+    '<div class="banner info">ℹ El historial es compartido: si tu compañero también usa esta página, ambos ven las mismas fotos.</div>'+
+    lastNotice+
+    '<div class="grid-2" style="margin-bottom:16px;">'+
+      buildDropzone('deudores-file','DEUDORES.xlsx','Deuda por contrato de cada cliente', state.deudoresFile)+
+      buildDropzone('recibos-file','RECIBOS.xlsx','Pagos registrados por cliente', state.recibosFile)+
+    '</div>'+
+    '<div class="card pad" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'+
+      '<span>📅 Fecha de corte de esta carga</span>'+
+      '<input type="date" id="cutoff-date" value="'+esc(state.cutoffDate)+'" style="border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-family:IBM Plex Mono,monospace;" />'+
+    '</div>'+
+    (state.error ? '<div class="banner error">⚠ '+esc(state.error)+'</div>' : '')+
+    '<button class="btn btn-primary" data-action="process" '+(!state.deudoresFile||!state.recibosFile||state.loading?'disabled':'')+'>'+
+      (state.loading ? '<span class="spin">⟳</span> Procesando...' : '✓ Procesar archivos')+
+    '</button>'+
+  '</div>';
+}
+function buildDropzone(id,label,hint,file){
+  return '<label for="'+id+'" class="dropzone'+(file?' filled':'')+'">'+
+    '<input type="file" id="'+id+'" accept=".xlsx,.xls" style="display:none;" />'+
+    '<div class="circle">'+(file?'✓':'▤')+'</div>'+
+    '<div class="label">'+label+'</div><div class="hint">'+hint+'</div>'+
+    (file?'<div class="filename">'+esc(file.name)+'</div>':'')+
+  '</label>';
+}
+
+function buildDashboard(){
+  const filtered = getFilteredClients();
+  const totalImpago = filtered.reduce((s,c)=>s+c.totalImpago,0);
+  const totalPrecancelable = filtered.reduce((s,c)=>s+c.totalPrecancelable,0);
+  const totalContratos = filtered.reduce((s,c)=>s+c.contractsFiltered.length,0);
+  let prevTotalImpago = null;
+  if(state.prevSnapshot){
+    prevTotalImpago = filtered.reduce((s,c)=>{ const p=clientPrevImpago(c.key); return s+(p==null?0:p); },0);
+  }
+  const estadoOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.estado)))).sort();
+  const gerenciaOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.gerencia)))).sort();
+
+  let html = (state.notice ? '<div class="banner notice">✓ '+esc(state.notice)+'</div>' : '');
+  html += '<div class="grid-4">'+
+    statCard('Clientes (filtro actual)', filtered.length, 'slate')+
+    statCard('Contratos (filtro actual)', totalContratos, 'slate')+
+    statCard('Deuda vencida (impaga)', money(totalImpago), 'rose', deltaChipHtml(totalImpago, prevTotalImpago))+
+    statCard('A vencer (precancelable)', money(totalPrecancelable), 'slate')+
+  '</div>';
+
+  html += '<div class="filter-bar">'+
+    '<div class="search-wrap"><span>🔎</span><input id="search-input" placeholder="Buscar cliente..." value="'+esc(state.search)+'" /></div>'+
+    '<div class="filter-group"><label class="title">Estado</label><div class="check-list">'+
+      estadoOpts.map(o=>'<label class="check-pill"><input type="checkbox" class="estado-check" value="'+esc(o)+'" '+(state.estadoFilter.has(o)?'checked':'')+' /> '+esc(o||'(sin dato)')+'</label>').join('')+
+    '</div></div>'+
+    '<div class="filter-group"><label class="title">Gerencia</label><div class="check-list">'+
+      gerenciaOpts.map(o=>'<label class="check-pill"><input type="checkbox" class="gerencia-check" value="'+esc(o)+'" '+(state.gerenciaFilter.has(o)?'checked':'')+' /> '+esc(o||'(sin dato)')+'</label>').join('')+
+    '</div></div>'+
+    '<div class="filter-group"><label class="title">Orden</label><div style="display:flex;gap:8px;">'+
+      '<select id="sort-field">'+
+        ['deuda:Deuda vencida','planes:Cantidad de planes','variacion:Variación de deuda','nombre:Nombre'].map(o=>{
+          const [v,l]=o.split(':'); return '<option value="'+v+'" '+(state.sortField===v?'selected':'')+'>'+l+'</option>';
+        }).join('')+
+      '</select>'+
+      '<button class="btn" id="sort-dir-btn" data-action="sort-dir">'+(state.sortDir==='desc'?'↓ Mayor a menor':'↑ Menor a mayor')+'</button>'+
+    '</div></div>'+
+  '</div>';
+
+  html += '<div class="card" id="client-list">'+ renderClientListInner(filtered) +'</div>';
+  return html + '</main>';
+}
+
+function statCard(label, value, accent, deltaHtml){
+  return '<div class="card pad"><div class="stat-head"><span class="stat-label">'+label+'</span>'+
+    '<div class="stat-icon '+accent+'">●</div></div>'+
+    '<div class="stat-value">'+value+'</div>'+
+    (deltaHtml ? '<div style="margin-top:6px;">'+deltaHtml+'</div>' : '')+
+  '</div>';
+}
+
+function renderClientListInner(filtered){
+  if(filtered.length===0) return '<div class="empty">No se encontraron clientes con ese criterio.</div>';
+  return filtered.map(c=>{
+    const prevImpago = clientPrevImpago(c.key);
+    return '<div class="client-row">'+
+      '<button class="client-head" data-action="toggle-client" data-key="'+esc(c.key)+'">'+
+        '<div style="display:flex;align-items:center;gap:10px;min-width:0;">'+
+          '<span class="chevron" id="chev-'+esc(c.key)+'">▸</span>'+
+          '<div><div class="client-name">'+esc(c.displayName)+'</div>'+
+          '<div class="client-sub">'+c.contractsFiltered.length+' contrato(s)</div></div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:22px;">'+
+          deltaChipHtml(c.totalImpago, prevImpago, true)+
+          '<div style="text-align:right;"><div class="font-num" style="font-weight:600;">'+esc(money(c.totalImpago))+'</div>'+
+          '<div style="font-size:11px;color:#94a3b8;">deuda vencida</div></div>'+
+        '</div>'+
+      '</button>'+
+      '<div class="client-detail" id="detail-'+esc(c.key)+'">'+ buildClientDetail(c) +'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function buildClientDetail(c){
+  let html = '<div class="stat-label" style="margin:10px 0 8px;">Contratos</div>'+
+    '<div class="table-wrap"><table><thead><tr><th>Plan</th><th>Estado</th><th>Gerencia</th>'+
+    '<th class="r">Cuotas pagas</th><th class="r">Cuotas adeudadas</th><th class="r">Deuda vencida</th>'+
+    '<th class="r">A vencer</th><th class="r">Variación</th></tr></thead><tbody>';
+  c.contractsFiltered.forEach(ct=>{
+    const prev = contractPrev(c.key, ct.id);
+    html += '<tr><td class="font-num">'+esc(ct.grupo)+'-'+esc(ct.orden)+'</td>'+
+      '<td><span class="badge '+(ct.estado==='Adjudicado'?'teal':'')+'">'+esc(ct.estado)+'</span></td>'+
+      '<td>'+esc(ct.gerencia)+'</td>'+
+      '<td class="r font-num">'+ct.totalPagadas+'</td>'+
+      '<td class="r font-num">'+ct.totalAdeudado+'</td>'+
+      '<td class="r font-num" style="font-weight:600;">'+esc(money(ct.valorTotalImpago))+'</td>'+
+      '<td class="r font-num" style="color:#64748b;">'+esc(money(ct.valorTotalPrecancelable))+'</td>'+
+      '<td class="r">'+deltaChipHtml(ct.valorTotalImpago, prev?prev.valorTotalImpago:null, true)+'</td></tr>';
+  });
+  html += '</tbody></table></div>';
+
+  html += '<div class="stat-label" style="margin:10px 0 8px;">Últimos 3 pagos registrados (a nivel cliente)</div>';
+  if(!c.payments || c.payments.length===0){
+    html += '<div class="card pad muted-italic">No hay pagos con estado "Registrado" para este cliente.</div>';
+  } else {
+    html += '<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>N° de recibo</th><th class="r">Monto</th></tr></thead><tbody>';
+    c.payments.forEach(p=>{
+      html += '<tr><td class="font-num">'+esc(shortDate(p.fecha))+'</td><td class="font-num" style="color:#64748b;">'+esc(p.numeroRecibo)+'</td>'+
+        '<td class="r font-num" style="font-weight:600;">'+esc(money(p.monto))+'</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  return html;
+}
+
+function buildMoraGeneral(){
+  let html = '<h2 class="section-title">Mora general en el tiempo</h2>'+
+    '<p class="section-sub">Evolución agregada de todos los clientes, tomada de cada foto guardada al procesar el archivo de deudores.</p>';
+  if(state.generalLoading){ html += '<div class="empty"><span class="spin">⟳</span> Cargando historial...</div>'; return html+'</main>'; }
+  if(state.generalHistory.length===0){ html += '<div class="muted-italic">Todavía no hay suficientes fotos guardadas.</div>'; return html+'</main>'; }
+  const last = state.generalHistory[state.generalHistory.length-1];
+  const prev = state.generalHistory.length>1 ? state.generalHistory[state.generalHistory.length-2] : null;
+  html += '<div class="grid-3">'+
+    statCard('Deuda vencida total (última foto)', money(last.impago), 'rose', deltaChipHtml(last.impago, prev?prev.impago:null))+
+    statCard('Clientes en mora (última foto)', last.clientesEnMora, 'slate')+
+    statCard('Contratos activos (última foto)', last.contratos, 'slate')+
+  '</div>';
+  html += '<div class="chart-box"><canvas id="general-chart"></canvas></div>';
+  html += '<div class="table-wrap"><table><thead><tr><th>Fecha de corte</th><th class="r">Clientes en mora</th><th class="r">Contratos</th>'+
+    '<th class="r">Deuda vencida total</th><th class="r">A vencer total</th><th class="r">Variación</th></tr></thead><tbody>';
+  state.generalHistory.forEach((h,idx)=>{
+    const p = idx>0 ? state.generalHistory[idx-1] : null;
+    html += '<tr><td class="font-num">'+esc(shortDate(h.date))+'</td><td class="r font-num">'+h.clientesEnMora+'</td>'+
+      '<td class="r font-num">'+h.contratos+'</td><td class="r font-num" style="font-weight:600;">'+esc(money(h.impago))+'</td>'+
+      '<td class="r font-num" style="color:#64748b;">'+esc(money(h.precancelable))+'</td>'+
+      '<td class="r">'+deltaChipHtml(h.impago, p?p.impago:null, true)+'</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  return html+'</main>';
+}
+
+function drawGeneralChart(){
+  const canvas = document.getElementById('general-chart');
+  if(!canvas || state.generalHistory.length===0) return;
+  if(generalChart) generalChart.destroy();
+  generalChart = new Chart(canvas, {
+    type:'line',
+    data:{ labels: state.generalHistory.map(h=>shortDate(h.date)),
+      datasets:[
+        {label:'Deuda vencida total', data:state.generalHistory.map(h=>h.impago), borderColor:'#e11d48', backgroundColor:'#e11d48', tension:.25},
+        {label:'A vencer total', data:state.generalHistory.map(h=>h.precancelable), borderColor:'#0d9488', backgroundColor:'#0d9488', tension:.25}
+      ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11}}}, tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+money(ctx.raw)}}},
+      scales:{ y:{ ticks:{ callback:v=>(v/1000000).toFixed(1)+'M', font:{size:10} } }, x:{ ticks:{font:{size:10}} } } }
+  });
+}
+
+function buildSeguimiento(){
+  const sorted = [...state.clients].sort((a,b)=>a.displayName.localeCompare(b.displayName));
+  let html = '<h2 class="section-title">Seguimiento por cliente</h2>'+
+    '<p class="section-sub">Elegí un cliente para ver cómo evolucionó su deuda a través de las cargas guardadas.</p>'+
+    '<select id="track-client-select" style="width:100%;max-width:420px;margin-bottom:20px;">'+
+      '<option value="">Seleccioná un cliente...</option>'+
+      sorted.map(c=>'<option value="'+esc(c.key)+'" '+(state.trackClientKey===c.key?'selected':'')+'>'+esc(c.displayName)+'</option>').join('')+
+    '</select>';
+  if(state.trackLoading){ html += '<div class="empty"><span class="spin">⟳</span> Cargando historial...</div>'; return html+'</main>'; }
+  if(state.trackClientKey && state.trackHistory.length===0){
+    html += '<div class="muted-italic">No hay suficiente historial guardado todavía para este cliente.</div>'; return html+'</main>';
+  }
+  if(state.trackHistory.length>0){
+    html += '<div class="chart-box"><canvas id="track-chart"></canvas></div>';
+    html += '<div class="table-wrap"><table><thead><tr><th>Fecha de corte</th><th class="r">Cuotas adeudadas</th>'+
+      '<th class="r">Deuda vencida</th><th class="r">A vencer</th><th class="r">Variación</th></tr></thead><tbody>';
+    state.trackHistory.forEach((h,idx)=>{
+      const p = idx>0 ? state.trackHistory[idx-1] : null;
+      html += '<tr><td class="font-num">'+esc(shortDate(h.date))+'</td><td class="r font-num">'+h.adeudado+'</td>'+
+        '<td class="r font-num" style="font-weight:600;">'+esc(money(h.impago))+'</td>'+
+        '<td class="r font-num" style="color:#64748b;">'+esc(money(h.precancelable))+'</td>'+
+        '<td class="r">'+deltaChipHtml(h.impago, p?p.impago:null, true)+'</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  return html+'</main>';
+}
+
+function drawTrackChart(){
+  const canvas = document.getElementById('track-chart');
+  if(!canvas || state.trackHistory.length===0) return;
+  if(trackChart) trackChart.destroy();
+  trackChart = new Chart(canvas, {
+    type:'line',
+    data:{ labels: state.trackHistory.map(h=>shortDate(h.date)),
+      datasets:[
+        {label:'Deuda vencida', data:state.trackHistory.map(h=>h.impago), borderColor:'#e11d48', backgroundColor:'#e11d48', tension:.25},
+        {label:'A vencer', data:state.trackHistory.map(h=>h.precancelable), borderColor:'#0d9488', backgroundColor:'#0d9488', tension:.25}
+      ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11}}}, tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+money(ctx.raw)}}},
+      scales:{ y:{ ticks:{ callback:v=>(v/1000).toFixed(0)+'k', font:{size:10} } }, x:{ ticks:{font:{size:10}} } } }
+  });
+}
+
+// ---------- events ----------
+function attachEvents(){
+  root.addEventListener('click', onRootClick);
+  root.addEventListener('input', onRootInput);
+  root.addEventListener('change', onRootChange);
+}
+function onRootClick(e){
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const action = btn.dataset.action;
+  if(action==='goto'){
+    state.view = btn.dataset.view;
+    if(state.view==='mora-general' && !state.generalLoaded){ loadGeneralHistory(); return; }
+    render();
+  } else if(action==='toggle-client'){
+    const key = btn.dataset.key;
+    const detail = document.getElementById('detail-'+CSS.escape(key));
+    const chev = document.getElementById('chev-'+CSS.escape(key));
+    if(detail){
+      const open = detail.style.display==='block';
+      detail.style.display = open ? 'none' : 'block';
+      if(chev) chev.textContent = open ? '▸' : '▾';
+    }
+  } else if(action==='process'){ handleProcess();
+  } else if(action==='reset-upload'){ resetToUpload();
+  } else if(action==='sort-dir'){
+    state.sortDir = state.sortDir==='desc' ? 'asc' : 'desc';
+    refreshDashboardList();
+  } else if(action==='auth-submit'){ handleAuthSubmit(); }
+}
+function onRootInput(e){
+  if(e.target.id==='search-input'){ state.search = e.target.value; refreshDashboardList(); }
+  else if(e.target.id==='cutoff-date'){ state.cutoffDate = e.target.value; }
+  else if(e.target.id==='deudores-file'){ state.deudoresFile = e.target.files[0]||null; render(); }
+  else if(e.target.id==='recibos-file'){ state.recibosFile = e.target.files[0]||null; render(); }
+}
+function onRootChange(e){
+  if(e.target.id==='sort-field'){ state.sortField = e.target.value; refreshDashboardList(); }
+  else if(e.target.classList.contains('estado-check')){ toggleSetItem(state.estadoFilter, e.target.value); refreshDashboardList(); }
+  else if(e.target.classList.contains('gerencia-check')){ toggleSetItem(state.gerenciaFilter, e.target.value); refreshDashboardList(); }
+  else if(e.target.id==='track-client-select'){
+    state.trackClientKey = e.target.value;
+    if(e.target.value) loadTrackHistory(e.target.value);
+    else { state.trackHistory=[]; render(); }
+  }
+}
+function refreshDashboardList(){
+  const listEl = document.getElementById('client-list');
+  if(!listEl) return;
+  const filtered = getFilteredClients();
+  listEl.innerHTML = renderClientListInner(filtered);
+  const sortBtn = document.getElementById('sort-dir-btn');
+  if(sortBtn) sortBtn.textContent = state.sortDir==='desc' ? '↓ Mayor a menor' : '↑ Menor a mayor';
+  // refresh the 4 stat cards without touching the filter bar / search focus
+  const totalImpago = filtered.reduce((s,c)=>s+c.totalImpago,0);
+  const totalPrecancelable = filtered.reduce((s,c)=>s+c.totalPrecancelable,0);
+  const totalContratos = filtered.reduce((s,c)=>s+c.contractsFiltered.length,0);
+  let prevTotalImpago = null;
+  if(state.prevSnapshot) prevTotalImpago = filtered.reduce((s,c)=>{ const p=clientPrevImpago(c.key); return s+(p==null?0:p); },0);
+  const grid = document.querySelector('.grid-4');
+  if(grid){
+    grid.innerHTML = statCard('Clientes (filtro actual)', filtered.length, 'slate')+
+      statCard('Contratos (filtro actual)', totalContratos, 'slate')+
+      statCard('Deuda vencida (impaga)', money(totalImpago), 'rose', deltaChipHtml(totalImpago, prevTotalImpago))+
+      statCard('A vencer (precancelable)', money(totalPrecancelable), 'slate');
+  }
+}
+
+// ---------- boot ----------
+(async function init(){
+  state.configOk = configLooksValid();
+  if(!state.configOk){ state.booting=false; render(); return; }
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  state.authed = APP_PASSWORD ? (localStorage.getItem('morosidad_auth')==='ok') : true;
+  try{
+    state.snapshotDates = await listSnapshotDates();
+    state.dbOk = true;
+    if(state.authed && state.snapshotDates.length>0){
+      const latest = state.snapshotDates[state.snapshotDates.length-1];
+      const snap = await getSnapshot(latest);
+      if(snap){
+        state.clients = clientsFromSnapshot(snap);
+        const estadoOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.estado)))).sort();
+        const gerenciaOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.gerencia)))).sort();
+        state.estadoFilter = new Set(estadoOpts);
+        state.gerenciaFilter = new Set(gerenciaOpts);
+        const prior = state.snapshotDates.filter(d=>d<latest);
+        if(prior.length) state.prevSnapshot = await getSnapshot(prior[prior.length-1]);
+        state.notice = 'Mostrando la última foto guardada ('+shortDate(latest)+'). Subí archivos nuevos para actualizarla.';
+        state.view = 'dashboard';
+      }
+    }
+  } catch(e){
+    state.dbOk = false;
+  }
+  state.booting = false;
+  render();
+})();
+</script>
+</body>
+</html>
