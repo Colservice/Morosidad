@@ -43,13 +43,13 @@
   .btn-ghost:hover{background:#1e293b;color:#fff;}
 
   main{max-width:1100px;margin:0 auto;padding:32px 24px;}
-  .narrow{max-width:640px;} 
+  .narrow{max-width:640px;}
 
   h2.section-title{font-family:'Newsreader',serif;font-size:22px;margin:0 0 6px;}
   .section-sub{color:var(--muted);font-size:14px;margin:0 0 20px;}
 
   .card{background:var(--card);border:1px solid var(--border);border-radius:10px;}
-  .pad{padding:16px;} 
+  .pad{padding:16px;}
 
   .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
   .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
@@ -132,13 +132,14 @@
    CONFIGURACIÓN — completá estas 3 líneas con tus propios datos.
    Podés editarlas directamente en GitHub sin bajar el archivo.
    =================================================================== */
-const SUPABASE_URL = "https://vjgobneflufsqrsyopar.supabase.co";
+const SUPABASE_URL = "vjgobneflufsqrsyopar";
 const SUPABASE_ANON_KEY = "sb_publishable_v4vIFnOjY99SquN-j7VZMg_rpYbejFP";
 const APP_PASSWORD = "Colservice"; // clave compartida para entrar al panel
 /* =================================================================== */
 
 // ---------- helpers ----------
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function safeId(k){ return (k||'').toString().replace(/[^A-Za-z0-9_-]/g,'_'); }
 function normName(s){ return (s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,' ').trim(); }
 function money(n){ return (n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}); }
 function shortDate(d){ if(!d) return '—'; const dt = d instanceof Date ? d : new Date(d); if(isNaN(dt)) return '—'; return dt.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
@@ -557,7 +558,7 @@ function renderClientListInner(filtered){
     return '<div class="client-row">'+
       '<button class="client-head" data-action="toggle-client" data-key="'+esc(c.key)+'">'+
         '<div style="display:flex;align-items:center;gap:10px;min-width:0;">'+
-          '<span class="chevron" id="chev-'+esc(c.key)+'">▸</span>'+
+          '<span class="chevron" id="chev-'+safeId(c.key)+'">▸</span>'+
           '<div><div class="client-name">'+esc(c.displayName)+'</div>'+
           '<div class="client-sub">'+c.contractsFiltered.length+' contrato(s)</div></div>'+
         '</div>'+
@@ -567,7 +568,7 @@ function renderClientListInner(filtered){
           '<div style="font-size:11px;color:#94a3b8;">deuda vencida</div></div>'+
         '</div>'+
       '</button>'+
-      '<div class="client-detail" id="detail-'+esc(c.key)+'">'+ buildClientDetail(c) +'</div>'+
+      '<div class="client-detail" id="detail-'+safeId(c.key)+'">'+ buildClientDetail(c) +'</div>'+
     '</div>';
   }).join('');
 }
@@ -708,8 +709,8 @@ function onRootClick(e){
     render();
   } else if(action==='toggle-client'){
     const key = btn.dataset.key;
-    const detail = document.getElementById('detail-'+CSS.escape(key));
-    const chev = document.getElementById('chev-'+CSS.escape(key));
+    const detail = document.getElementById('detail-'+safeId(key));
+    const chev = document.getElementById('chev-'+safeId(key));
     if(detail){
       const open = detail.style.display==='block';
       detail.style.display = open ? 'none' : 'block';
