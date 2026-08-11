@@ -196,11 +196,26 @@ function parseRecibos(rows){
   return byClient;
 }
 
-function buildClients(deudoresMap, recibosMap){
+function buildClients(deudoresMap, paymentsByClientMap){
   const out=[];
   for(const c of deudoresMap.values()){
-    const payments = (recibosMap.get(c.key)||[]).slice(0,3);
+    const payments = paymentsByClientMap.get(c.key) || [];
     out.push(Object.assign({}, c, {payments}));
+  }
+  return out;
+}
+
+// convierte los pagos "Registrado" de un archivo RECIBOS en filas listas para
+// guardar de forma acumulativa (no se pierden al subir un archivo distinto)
+function buildPaymentRecords(recibosMap){
+  const out = [];
+  for(const [key, list] of recibosMap.entries()){
+    for(const p of list){
+      const fechaStr = p.fecha ? p.fecha.toISOString().slice(0,10) : null;
+      const numero = (p.numeroRecibo!=null && p.numeroRecibo!=='') ? String(p.numeroRecibo) : null;
+      const idPart = numero || ((fechaStr||'sinfecha')+'-'+p.monto);
+      out.push({ id: key+'::'+idPart, client_key:key, fecha: fechaStr, numero_recibo: numero, monto: p.monto });
+    }
   }
   return out;
 }
@@ -212,10 +227,7 @@ function snapshotFromClients(clients, date){
     for(const ct of c.contracts){
       contracts[ct.id] = {estado:ct.estado, gerencia:ct.gerencia, totalPagadas:ct.totalPagadas, totalAdeudado:ct.totalAdeudado, valorTotalImpago:ct.valorTotalImpago, valorTotalPrecancelable:ct.valorTotalPrecancelable};
     }
-    byClient[c.key] = {
-      displayName:c.displayName, contracts,
-      payments:(c.payments||[]).map(p=>({fecha: p.fecha? p.fecha.toISOString(): null, numeroRecibo:p.numeroRecibo, monto:p.monto}))
-    };
+    byClient[c.key] = { displayName:c.displayName, contracts };
   }
   return {date, clients:byClient};
 }
@@ -226,8 +238,7 @@ function clientsFromSnapshot(snap){
       const idx = id.indexOf('-'); const grupo = id.slice(0,idx); const orden = id.slice(idx+1);
       return Object.assign({id, grupo, orden}, ct);
     });
-    const payments = (c.payments||[]).map(p=>({fecha: p.fecha? new Date(p.fecha): null, numeroRecibo:p.numeroRecibo, monto:p.monto}));
-    return {key, displayName:c.displayName, contracts, payments};
+    return {key, displayName:c.displayName, contracts, payments:[]};
   });
 }
 
@@ -261,6 +272,32 @@ async function getSnapshot(date){
 async function saveSnapshot(date, snap){
   const {error} = await sb.from('snapshots').upsert({date, data:snap});
   if(error) throw error;
+}
+
+// guarda los pagos "Registrado" de forma acumulativa: subir el mismo recibo
+// dos veces no duplica nada (se pisa por id), así que es seguro re-subir
+// el mismo archivo o solapar meses.
+async function upsertPayments(records){
+  if(!records.length) return;
+  const chunkSize = 500;
+  for(let i=0;i<records.length;i+=chunkSize){
+    const chunk = records.slice(i,i+chunkSize);
+    const {error} = await sb.from('payments').upsert(chunk, {onConflict:'id'});
+    if(error) throw error;
+  }
+}
+// trae, para cada cliente, los últimos 3 pagos considerando TODO lo acumulado
+// hasta ahora (no solo el último archivo subido)
+async function fetchPaymentsByClient(){
+  const {data, error} = await sb.from('payments').select('client_key,fecha,numero_recibo,monto').order('fecha',{ascending:false}).limit(5000);
+  if(error) throw error;
+  const map = new Map();
+  for(const p of (data||[])){
+    if(!map.has(p.client_key)) map.set(p.client_key, []);
+    const arr = map.get(p.client_key);
+    if(arr.length<3) arr.push({fecha: p.fecha? new Date(p.fecha): null, numeroRecibo:p.numero_recibo, monto:p.monto});
+  }
+  return map;
 }
 
 // ---------- state ----------
@@ -324,14 +361,23 @@ function getFilteredClients(){
 // ---------- data actions ----------
 async function handleProcess(){
   state.error=''; state.notice='';
-  if(!state.deudoresFile || !state.recibosFile){ state.error='Subí los dos archivos antes de procesar.'; render(); return; }
+  if(!state.deudoresFile){ state.error='Subí al menos el archivo de deudores.'; render(); return; }
   state.loading = true; render();
   try{
-    const [deudoresRows, recibosRows] = await Promise.all([readWorkbook(state.deudoresFile), readWorkbook(state.recibosFile)]);
+    const deudoresRows = await readWorkbook(state.deudoresFile);
     const deudoresMap = parseDeudores(deudoresRows);
-    const recibosMap = parseRecibos(recibosRows);
     if(deudoresMap.size===0) throw new Error('No encontré filas de deudores en el archivo DEUDORES.');
-    const built = buildClients(deudoresMap, recibosMap);
+
+    let nuevosRecibos = 0;
+    if(state.recibosFile){
+      const recibosRows = await readWorkbook(state.recibosFile);
+      const recibosMap = parseRecibos(recibosRows);
+      const paymentRecords = buildPaymentRecords(recibosMap);
+      await upsertPayments(paymentRecords);
+      nuevosRecibos = paymentRecords.length;
+    }
+    const paymentsByClientMap = await fetchPaymentsByClient();
+    const built = buildClients(deudoresMap, paymentsByClientMap);
 
     const dates = await listSnapshotDates();
     const priorDates = dates.filter(d=>d<state.cutoffDate).sort();
@@ -353,9 +399,12 @@ async function handleProcess(){
     state.gerenciaFilter = new Set(gerenciaOpts);
     state.search='';
 
-    state.notice = already
+    const recibosMsg = state.recibosFile
+      ? (' Se procesaron '+nuevosRecibos+' recibo(s) del archivo subido (se suman a los que ya tenías guardados).')
+      : ' No subiste recibos nuevos, así que los últimos pagos se calculan con lo que ya estaba guardado.';
+    state.notice = (already
       ? 'Actualicé la foto compartida del '+shortDate(state.cutoffDate)+' (ya existía una carga para esa fecha).'
-      : 'Guardé la foto compartida del '+shortDate(state.cutoffDate)+'. Cualquiera que abra esta página va a poder verla.';
+      : 'Guardé la foto compartida del '+shortDate(state.cutoffDate)+'.') + recibosMsg;
     state.view='dashboard';
   } catch(e){
     state.error = (e && e.message) ? e.message : 'Ocurrió un error al procesar los archivos.';
@@ -475,19 +524,19 @@ function buildUpload(){
     '<div class="chip" style="color:#64748b;background:#fff;border:1px solid var(--border);border-radius:8px;padding:7px 12px;width:fit-content;margin-bottom:20px;">⏱ Última foto guardada: <b class="font-num">'+esc(shortDate(state.snapshotDates[state.snapshotDates.length-1]))+'</b> · '+state.snapshotDates.length+' foto(s) en total</div>' : '';
   return '<div class="narrow">'+
     '<h2 class="section-title">Cargar archivos del día</h2>'+
-    '<p class="section-sub">Subí el archivo de deudores y el de recibos. Se guarda una foto compartida con la fecha de corte, visible para cualquiera que entre a esta página.</p>'+
-    '<div class="banner info">ℹ El historial es compartido: si tu compañero también usa esta página, ambos ven las mismas fotos.</div>'+
+    '<p class="section-sub">El archivo de deudores es obligatorio siempre (refleja el estado actual completo). El de recibos es opcional: subí solo los pagos nuevos que todavía no cargaste — se van sumando a los que ya tenés guardados, no hace falta subir el historial completo cada vez.</p>'+
+    '<div class="banner info">ℹ El historial es compartido: si tu compañero también usa esta página, ambos ven las mismas fotos y los mismos recibos acumulados.</div>'+
     lastNotice+
     '<div class="grid-2" style="margin-bottom:16px;">'+
-      buildDropzone('deudores-file','DEUDORES.xlsx','Deuda por contrato de cada cliente', state.deudoresFile)+
-      buildDropzone('recibos-file','RECIBOS.xlsx','Pagos registrados por cliente', state.recibosFile)+
+      buildDropzone('deudores-file','DEUDORES.xlsx','Deuda por contrato de cada cliente (obligatorio)', state.deudoresFile)+
+      buildDropzone('recibos-file','RECIBOS.xlsx','Pagos nuevos a sumar (opcional)', state.recibosFile)+
     '</div>'+
     '<div class="card pad" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'+
       '<span>📅 Fecha de corte de esta carga</span>'+
       '<input type="date" id="cutoff-date" value="'+esc(state.cutoffDate)+'" style="border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-family:IBM Plex Mono,monospace;" />'+
     '</div>'+
     (state.error ? '<div class="banner error">⚠ '+esc(state.error)+'</div>' : '')+
-    '<button class="btn btn-primary" data-action="process" '+(!state.deudoresFile||!state.recibosFile||state.loading?'disabled':'')+'>'+
+    '<button class="btn btn-primary" data-action="process" '+(!state.deudoresFile||state.loading?'disabled':'')+'>'+
       (state.loading ? '<span class="spin">⟳</span> Procesando...' : '✓ Procesar archivos')+
     '</button>'+
   '</div>';
@@ -775,6 +824,10 @@ function refreshDashboardList(){
       const snap = await getSnapshot(latest);
       if(snap){
         state.clients = clientsFromSnapshot(snap);
+        try{
+          const paymentsByClientMap = await fetchPaymentsByClient();
+          state.clients.forEach(c=>{ c.payments = paymentsByClientMap.get(c.key) || []; });
+        }catch(e){ /* si falla, se muestran igual los contratos sin los últimos pagos */ }
         const estadoOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.estado)))).sort();
         const gerenciaOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.gerencia)))).sort();
         state.estadoFilter = new Set(estadoOpts);
