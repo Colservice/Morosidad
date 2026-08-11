@@ -140,7 +140,7 @@ const APP_PASSWORD = "Colservice"; // clave compartida para entrar al panel
 // ---------- helpers ----------
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function safeId(k){ return (k||'').toString().replace(/[^A-Za-z0-9_-]/g,'_'); }
-function normName(s){ return (s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,' ').trim(); }
+function normName(s){ return (s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,' ').trim(); }
 function money(n){ return (n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}); }
 function shortDate(d){ if(!d) return '—'; const dt = d instanceof Date ? d : new Date(d); if(isNaN(dt)) return '—'; return dt.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
@@ -162,18 +162,55 @@ function readWorkbook(file){
   });
 }
 
+// ---------- lectura de columnas por nombre (no por posición) ----------
+// así el programa sigue funcionando aunque el orden de las columnas cambie
+// entre un archivo y otro.
+function normHeader(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
+function findCol(headerRow, exactNames){
+  const normalized = headerRow.map(h=>normHeader(h));
+  for(const name of exactNames){
+    const idx = normalized.indexOf(name);
+    if(idx !== -1) return idx;
+  }
+  return -1;
+}
+// para "Monto": puede haber más de una columna que contenga la palabra, nos
+// quedamos con la ÚLTIMA que se llame exactamente "monto" (según lo pedido).
+function findLastExactCol(headerRow, name){
+  const normalized = headerRow.map(h=>normHeader(h));
+  let found = -1;
+  normalized.forEach((h,i)=>{ if(h===name) found=i; });
+  return found;
+}
+
 function parseDeudores(rows){
+  if(!rows.length) throw new Error('El archivo de deudores está vacío.');
+  const header = rows[0];
+  const col = {
+    razonSocial: findCol(header, ['razon social']),
+    grupo: findCol(header, ['grupo']),
+    orden: findCol(header, ['orden']),
+    estado: findCol(header, ['estado']),
+    gerencia: findCol(header, ['gerencia']),
+    totalPagadas: findCol(header, ['total pagadas']),
+    totalAdeudado: findCol(header, ['total adeudado']),
+    valorImpago: findCol(header, ['valor total impago']),
+    valorPrecancelable: findCol(header, ['valor total precancelable']),
+  };
+  const faltantes = Object.entries(col).filter(([k,v])=>v===-1).map(([k])=>k);
+  if(faltantes.length) throw new Error('No encontré estas columnas en el archivo de deudores: '+faltantes.join(', ')+'. Revisá que los encabezados no hayan cambiado de nombre.');
+
   const clients = new Map();
   for(let i=1;i<rows.length;i++){
     const r = rows[i];
-    if(!r || r[0]==null || r[0]==='') continue;
-    const displayName = String(r[0]).trim();
+    if(!r || r[col.razonSocial]==null || r[col.razonSocial]==='') continue;
+    const displayName = String(r[col.razonSocial]).trim();
     const key = normName(displayName);
     const contract = {
-      id: (r[1]+'-'+r[2]), grupo:r[1], orden:r[2],
-      estado:(r[3]||'').toString().trim(), gerencia:(r[4]||'').toString().trim(),
-      totalPagadas:Number(r[5])||0, totalAdeudado:Number(r[6])||0,
-      valorTotalImpago:Number(r[8])||0, valorTotalPrecancelable:Number(r[10])||0,
+      id: (r[col.grupo]+'-'+r[col.orden]), grupo:r[col.grupo], orden:r[col.orden],
+      estado:(r[col.estado]||'').toString().trim(), gerencia:(r[col.gerencia]||'').toString().trim(),
+      totalPagadas:Number(r[col.totalPagadas])||0, totalAdeudado:Number(r[col.totalAdeudado])||0,
+      valorTotalImpago:Number(r[col.valorImpago])||0, valorTotalPrecancelable:Number(r[col.valorPrecancelable])||0,
     };
     if(!clients.has(key)) clients.set(key,{key,displayName,contracts:[]});
     clients.get(key).contracts.push(contract);
@@ -182,13 +219,26 @@ function parseDeudores(rows){
 }
 
 function parseRecibos(rows){
+  if(!rows.length) throw new Error('El archivo de recibos está vacío.');
+  const header = rows[0];
+  const col = {
+    nombre: findCol(header, ['nombre']),
+    numeroRecibo: findCol(header, ['numero de recibo']),
+    fecha: findCol(header, ['fecha']),
+    estadoPago: findCol(header, ['estado de pago']),
+    monto: findLastExactCol(header, 'monto'),
+  };
+  const faltantes = Object.entries(col).filter(([k,v])=>v===-1).map(([k])=>k);
+  if(faltantes.length) throw new Error('No encontré estas columnas en el archivo de recibos: '+faltantes.join(', ')+'. Revisá que los encabezados no hayan cambiado de nombre.');
+
   const byClient = new Map();
   for(let i=1;i<rows.length;i++){
     const r = rows[i];
-    if(!r || r[2]==null) continue;
-    if((r[6]||'').toString().trim() !== 'Registrado') continue;
-    const key = normName(r[2]);
-    const payment = { fecha: r[4] instanceof Date ? r[4] : (r[4]? new Date(r[4]):null), numeroRecibo:r[3]||'', monto:Number(r[9])||0 };
+    if(!r || r[col.nombre]==null) continue;
+    if((r[col.estadoPago]||'').toString().trim() !== 'Registrado') continue;
+    const key = normName(r[col.nombre]);
+    const fechaVal = r[col.fecha];
+    const payment = { fecha: fechaVal instanceof Date ? fechaVal : (fechaVal? new Date(fechaVal):null), numeroRecibo:r[col.numeroRecibo]||'', monto:Number(r[col.monto])||0 };
     if(!byClient.has(key)) byClient.set(key,[]);
     byClient.get(key).push(payment);
   }
