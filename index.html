@@ -398,7 +398,7 @@ const state = {
   planCuotas:new Map(), planCuotasLoaded:false, planCuotasLoading:false,
   planCuotasFile:null, planCuotasEditGrupo:'', planCuotasEditCuotas:'',
   informeGerencia:'', informeLoaded:false,
-  chatOpen:false, chatMessages:[], chatVoiceOn:true, chatListening:false,
+  chatOpen:false, chatMessages:[], chatVoiceOn:true, chatListening:false, chatLastClientKey:null,
 };
 let generalChart=null, trackChart=null;
 
@@ -505,33 +505,45 @@ function findClientMatches(queryNorm, clients){
 }
 
 function generateAnswer(rawQuery){
-  if(!state.clients.length) return 'Todavía no hay datos cargados. Subí un archivo de deudores primero.';
+  if(!state.clients.length) return {text:'Todavía no hay datos cargados. Subí un archivo de deudores primero.', clientKey:null};
   const q = normName(rawQuery);
-  if(!q) return 'No te escuché bien, ¿podés repetir la consulta?';
+  if(!q) return {text:'No te escuché bien, ¿podés repetir la consulta?', clientKey:null};
 
   const matches = findClientMatches(q, state.clients);
-  if(matches.length===0) return 'No encontré ningún cliente que coincida con "'+rawQuery+'". ¿Podés repetir el nombre?';
-
-  const top = matches[0];
-  const close = matches.filter(m=>m!==top && m.score >= top.score-15);
-  if(close.length>0 && top.score<95){
-    const names = [top, ...close].slice(0,4).map(m=>m.client.displayName);
-    return 'Encontré varios clientes parecidos: '+names.join(', ')+'. ¿Podés ser más específico?';
+  let client = null;
+  if(matches.length===0){
+    // no se mencionó (o no se reconoció) ningún cliente en este mensaje:
+    // si veníamos hablando de alguien, asumimos que la pregunta sigue siendo sobre esa persona
+    if(state.chatLastClientKey) client = state.clients.find(c=>c.key===state.chatLastClientKey) || null;
+    if(!client) return {text:'No encontré ningún cliente que coincida con "'+rawQuery+'". ¿Podés repetir el nombre?', clientKey:null};
+  } else {
+    const top = matches[0];
+    const close = matches.filter(m=>m!==top && m.score >= top.score-15);
+    if(close.length>0 && top.score<95){
+      const names = [top, ...close].slice(0,4).map(m=>m.client.displayName);
+      return {text:'Encontré varios clientes parecidos: '+names.join(', ')+'. ¿Podés ser más específico?', clientKey:null};
+    }
+    client = top.client;
   }
-  const client = top.client;
+
   const totalImpago = client.contracts.reduce((s,c)=>s+c.valorTotalImpago,0);
   const totalPrecancelable = client.contracts.reduce((s,c)=>s+c.valorTotalPrecancelable,0);
+  const totalCuotasVencidas = client.contracts.reduce((s,c)=>s+c.totalAdeudado,0);
+  const totalCuotasPagas = client.contracts.reduce((s,c)=>s+c.totalPagadas,0);
 
+  const wantsCuota = /CUOTA/.test(q);
   const wantsPagos = /PAGO|RECIBO|ABON|COBR/.test(q);
   const wantsVencida = /VENCID/.test(q) && !/A VENCER|POR VENCER/.test(q);
   const wantsAVencer = /A VENCER|POR VENCER/.test(q);
   const wantsCirculos = /CIRCULO|CONTRATO|PLAN(?!ILLA)/.test(q);
   const wantsEstado = /ADJUDICAD|AGRUPAD|ESTADO/.test(q);
   const wantsVariacion = /AUMENT|INCREMENT|SUBIO|SUBIÓ|BAJO|BAJÓ|DISMINUY|REDUJO|VARIACION|VARIACIÓN|CAMBIO|CAMBIÓ/.test(q);
-  const anySpecific = wantsPagos||wantsVencida||wantsAVencer||wantsCirculos||wantsEstado||wantsVariacion;
+  const anySpecific = wantsPagos||wantsVencida||wantsAVencer||wantsCirculos||wantsEstado||wantsVariacion||wantsCuota;
 
   const parts = [];
   if(wantsVencida || !anySpecific) parts.push('la deuda vencida es de '+money(totalImpago));
+  if((wantsCuota && wantsVencida) || (wantsCuota && !wantsAVencer && !/PAGA/.test(q))) parts.push('tiene '+totalCuotasVencidas+' cuota'+(totalCuotasVencidas===1?'':'s')+' vencida'+(totalCuotasVencidas===1?'':'s')+' impaga'+(totalCuotasVencidas===1?'':'s'));
+  if(wantsCuota && /PAGA/.test(q)) parts.push('lleva '+totalCuotasPagas+' cuota'+(totalCuotasPagas===1?'':'s')+' pagada'+(totalCuotasPagas===1?'':'s'));
   if(wantsAVencer || !anySpecific) parts.push('la deuda a vencer es de '+money(totalPrecancelable));
   if(wantsCirculos || !anySpecific) parts.push('tiene '+client.contracts.length+' círculo'+(client.contracts.length===1?'':'s'));
   if(wantsEstado){
@@ -554,7 +566,7 @@ function generateAnswer(rawQuery){
       parts.push('los últimos pagos registrados son: '+client.payments.map(p=>shortDate(p.fecha)+' por '+money(p.monto)).join(', '));
     } else parts.push('no tiene pagos registrados');
   }
-  return client.displayName+': '+parts.join('; ')+'.';
+  return {text: client.displayName+': '+parts.join('; ')+'.', clientKey: client.key};
 }
 
 function getFilterOptions(){
@@ -1409,9 +1421,10 @@ function handleChatSend(overrideText){
   if(!text) return;
   state.chatMessages.push({role:'user', text});
   const answer = generateAnswer(text);
-  state.chatMessages.push({role:'bot', text:answer});
+  if(answer.clientKey) state.chatLastClientKey = answer.clientKey;
+  state.chatMessages.push({role:'bot', text:answer.text});
   renderChat();
-  speakText(answer);
+  speakText(answer.text);
 }
 
 function toggleChatMic(){
