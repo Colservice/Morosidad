@@ -669,11 +669,40 @@ async function deletePlanCuota(grupo){
   if(error) throw error;
 }
 
-function handleAuthSubmit(){
+// carga la última foto guardada (deudores + pagos acumulados) y lleva directo
+// al panel. Se usa tanto al abrir la página (si ya estás logueado) como
+// justo después de poner la contraseña correcta en un dispositivo nuevo.
+async function loadLatestSnapshotIntoView(){
+  if(state.snapshotDates.length===0) return;
+  const latest = state.snapshotDates[state.snapshotDates.length-1];
+  const snap = await getSnapshot(latest);
+  if(!snap) return;
+  state.clients = clientsFromSnapshot(snap);
+  try{
+    const paymentsByClientMap = await fetchPaymentsByClient();
+    state.clients.forEach(c=>{ c.payments = paymentsByClientMap.get(c.key) || []; });
+  }catch(e){ /* si falla, se muestran igual los contratos sin los últimos pagos */ }
+  const estadoOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.estado)))).sort();
+  const gerenciaOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.gerencia)))).sort();
+  state.estadoFilter = new Set(estadoOpts);
+  state.gerenciaFilter = new Set(gerenciaOpts);
+  const prior = state.snapshotDates.filter(d=>d<latest);
+  if(prior.length) state.prevSnapshot = await getSnapshot(prior[prior.length-1]);
+  state.notice = 'Mostrando la última foto guardada ('+shortDate(latest)+'). Subí archivos nuevos para actualizarla.';
+  state.view = 'dashboard';
+}
+
+async function handleAuthSubmit(){
   const val = document.getElementById('auth-password').value;
   if(val === APP_PASSWORD){
     localStorage.setItem('morosidad_auth','ok');
     state.authed = true;
+    state.booting = true; render();
+    try{
+      state.snapshotDates = await listSnapshotDates();
+      await loadLatestSnapshotIntoView();
+    }catch(e){ /* si falla, igual dejamos pasar a la pantalla de carga */ }
+    state.booting = false;
     render();
   } else {
     document.getElementById('auth-error').style.display='block';
@@ -1304,25 +1333,7 @@ function refreshDashboardList(){
   try{
     state.snapshotDates = await listSnapshotDates();
     state.dbOk = true;
-    if(state.authed && state.snapshotDates.length>0){
-      const latest = state.snapshotDates[state.snapshotDates.length-1];
-      const snap = await getSnapshot(latest);
-      if(snap){
-        state.clients = clientsFromSnapshot(snap);
-        try{
-          const paymentsByClientMap = await fetchPaymentsByClient();
-          state.clients.forEach(c=>{ c.payments = paymentsByClientMap.get(c.key) || []; });
-        }catch(e){ /* si falla, se muestran igual los contratos sin los últimos pagos */ }
-        const estadoOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.estado)))).sort();
-        const gerenciaOpts = Array.from(new Set(state.clients.flatMap(c=>c.contracts.map(ct=>ct.gerencia)))).sort();
-        state.estadoFilter = new Set(estadoOpts);
-        state.gerenciaFilter = new Set(gerenciaOpts);
-        const prior = state.snapshotDates.filter(d=>d<latest);
-        if(prior.length) state.prevSnapshot = await getSnapshot(prior[prior.length-1]);
-        state.notice = 'Mostrando la última foto guardada ('+shortDate(latest)+'). Subí archivos nuevos para actualizarla.';
-        state.view = 'dashboard';
-      }
-    }
+    if(state.authed){ await loadLatestSnapshotIntoView(); }
   } catch(e){
     state.dbOk = false;
   }
