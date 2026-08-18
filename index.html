@@ -133,19 +133,39 @@
   .report-table .report-client{font-weight:600;vertical-align:middle;text-align:left;background:#f8fafc;}
   .report-table .report-totales{background:#FFF176;font-weight:700;}
   .report-table .report-totales td:first-child{text-align:center;}
+
+  /* ---- asistente flotante ---- */
+  .chat-fab{position:fixed;bottom:22px;right:22px;width:56px;height:56px;border-radius:50%;background:var(--teal);color:#fff;border:none;box-shadow:0 4px 14px rgba(0,0,0,.25);font-size:24px;display:flex;align-items:center;justify-content:center;z-index:1000;cursor:pointer;}
+  .chat-fab:hover{background:var(--teal-dark);}
+  .chat-panel{position:fixed;bottom:90px;right:22px;width:360px;max-width:92vw;height:480px;max-height:75vh;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden;z-index:1000;border:1px solid var(--border);}
+  .chat-head{background:var(--dark);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600;}
+  .chat-head-btns{display:flex;gap:6px;}
+  .chat-head button{background:rgba(255,255,255,.12);border:none;color:#fff;width:26px;height:26px;border-radius:6px;font-size:13px;cursor:pointer;}
+  .chat-head button.active{background:var(--teal);}
+  .chat-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:#f8fafc;}
+  .chat-msg{max-width:85%;padding:8px 11px;border-radius:10px;font-size:13px;line-height:1.4;}
+  .chat-msg.user{align-self:flex-end;background:var(--teal);color:#fff;border-bottom-right-radius:2px;}
+  .chat-msg.bot{align-self:flex-start;background:#e2e8f0;color:var(--text);border-bottom-left-radius:2px;}
+  .chat-input-row{display:flex;gap:6px;padding:10px;border-top:1px solid var(--border);background:#fff;}
+  .chat-input-row input{flex:1;border:1px solid #cbd5e1;border-radius:20px;padding:8px 14px;font-size:13px;}
+  .chat-input-row button{width:36px;height:36px;border-radius:50%;border:none;background:var(--teal);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0;}
+  .chat-input-row button.mic.listening{background:var(--rose);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,29,72,.5);}70%{box-shadow:0 0 0 9px rgba(225,29,72,0);}100%{box-shadow:0 0 0 0 rgba(225,29,72,0);}}
+  .chat-hint{font-size:11px;color:#94a3b8;padding:0 12px 8px;}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="chat-root"></div>
 
 <script>
 /* ===================================================================
    CONFIGURACIÓN — completá estas 3 líneas con tus propios datos.
    Podés editarlas directamente en GitHub sin bajar el archivo.
    =================================================================== */
-const SUPABASE_URL = "https://vjgobneflufsqrsyopar.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_v4vIFnOjY99SquN-j7VZMg_rpYbejFP";
-const APP_PASSWORD = "Colservice"; // clave compartida para entrar al panel
+const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+const APP_PASSWORD = "cambiar-esta-clave"; // clave compartida para entrar al panel
 /* =================================================================== */
 
 // ---------- helpers ----------
@@ -378,6 +398,7 @@ const state = {
   planCuotas:new Map(), planCuotasLoaded:false, planCuotasLoading:false,
   planCuotasFile:null, planCuotasEditGrupo:'', planCuotasEditCuotas:'',
   informeGerencia:'', informeLoaded:false,
+  chatOpen:false, chatMessages:[], chatVoiceOn:true, chatListening:false,
 };
 let generalChart=null, trackChart=null;
 
@@ -434,6 +455,106 @@ function computeCuotasReport(gerencia){
   });
   items.sort((a,b)=>a.clientName.localeCompare(b.clientName));
   return items;
+}
+
+// ---------- asistente: entender la pregunta y buscar el cliente ----------
+const NAME_STOPWORDS = new Set(['SA','SRL','SAS','SACIYF','SACI','SATACI','CIA','DE','DEL','LA','EL','LOS','LAS','Y','SPA']);
+function levenshtein(a,b){
+  const m=a.length, n=b.length;
+  if(m===0) return n; if(n===0) return m;
+  const dp = [];
+  for(let i=0;i<=m;i++) dp.push(new Array(n+1).fill(0));
+  for(let i=0;i<=m;i++) dp[i][0]=i;
+  for(let j=0;j<=n;j++) dp[0][j]=j;
+  for(let i=1;i<=m;i++){
+    for(let j=1;j<=n;j++){
+      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+// busca el/los clientes que mejor matchean con lo que se preguntó, tolerando
+// errores de tipeo y que falten palabras (S.A., S.R.L., etc no cuentan)
+function findClientMatches(queryNorm, clients){
+  const queryWords = queryNorm.split(' ').filter(w=>w.length>1);
+  const scored = clients.map(c=>{
+    const nameNorm = normName(c.displayName);
+    let score = 0;
+    if(nameNorm && queryNorm.includes(nameNorm)){
+      score = 100;
+    } else {
+      const nameWords = Array.from(new Set(nameNorm.split(' ').filter(w=>w.length>2 && !NAME_STOPWORDS.has(w))));
+      if(nameWords.length){
+        // con una sola palabra distintiva no toleramos errores de tipeo (es
+        // muy fácil "coincidir por casualidad" con una palabra suelta)
+        const allowFuzzy = nameWords.length >= 2;
+        let matched = 0;
+        for(const nw of nameWords){
+          const hit = queryWords.some(qw => qw===nw || (allowFuzzy && levenshtein(qw,nw) <= Math.max(1, Math.floor(nw.length*0.25))));
+          if(hit) matched++;
+        }
+        const ratio = matched/nameWords.length;
+        score = ratio*60 + Math.min(matched,5)*8;
+        if(nameWords.length===1) score = Math.min(score, 55);
+      }
+    }
+    return {client:c, score};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  return scored.filter(s=>s.score>=45);
+}
+
+function generateAnswer(rawQuery){
+  if(!state.clients.length) return 'Todavía no hay datos cargados. Subí un archivo de deudores primero.';
+  const q = normName(rawQuery);
+  if(!q) return 'No te escuché bien, ¿podés repetir la consulta?';
+
+  const matches = findClientMatches(q, state.clients);
+  if(matches.length===0) return 'No encontré ningún cliente que coincida con "'+rawQuery+'". ¿Podés repetir el nombre?';
+
+  const top = matches[0];
+  const close = matches.filter(m=>m!==top && m.score >= top.score-15);
+  if(close.length>0 && top.score<95){
+    const names = [top, ...close].slice(0,4).map(m=>m.client.displayName);
+    return 'Encontré varios clientes parecidos: '+names.join(', ')+'. ¿Podés ser más específico?';
+  }
+  const client = top.client;
+  const totalImpago = client.contracts.reduce((s,c)=>s+c.valorTotalImpago,0);
+  const totalPrecancelable = client.contracts.reduce((s,c)=>s+c.valorTotalPrecancelable,0);
+
+  const wantsPagos = /PAGO|RECIBO|ABON|COBR/.test(q);
+  const wantsVencida = /VENCID/.test(q) && !/A VENCER|POR VENCER/.test(q);
+  const wantsAVencer = /A VENCER|POR VENCER/.test(q);
+  const wantsCirculos = /CIRCULO|CONTRATO|PLAN(?!ILLA)/.test(q);
+  const wantsEstado = /ADJUDICAD|AGRUPAD|ESTADO/.test(q);
+  const wantsVariacion = /AUMENT|INCREMENT|SUBIO|SUBIÓ|BAJO|BAJÓ|DISMINUY|REDUJO|VARIACION|VARIACIÓN|CAMBIO|CAMBIÓ/.test(q);
+  const anySpecific = wantsPagos||wantsVencida||wantsAVencer||wantsCirculos||wantsEstado||wantsVariacion;
+
+  const parts = [];
+  if(wantsVencida || !anySpecific) parts.push('la deuda vencida es de '+money(totalImpago));
+  if(wantsAVencer || !anySpecific) parts.push('la deuda a vencer es de '+money(totalPrecancelable));
+  if(wantsCirculos || !anySpecific) parts.push('tiene '+client.contracts.length+' círculo'+(client.contracts.length===1?'':'s'));
+  if(wantsEstado){
+    const adj = client.contracts.filter(c=>c.estado==='Adjudicado').length;
+    const agr = client.contracts.filter(c=>c.estado==='Agrupado').length;
+    parts.push('de esos, '+adj+' están Adjudicados y '+agr+' Agrupados');
+  }
+  if(wantsVariacion){
+    const prev = clientPrevImpago(client.key);
+    if(prev==null) parts.push('no tengo una foto anterior guardada para comparar');
+    else{
+      const diff = totalImpago - prev;
+      if(Math.abs(diff)<0.5) parts.push('la deuda vencida no tuvo cambios desde la última carga');
+      else if(diff>0) parts.push('la deuda vencida aumentó '+money(diff)+' desde la última carga');
+      else parts.push('la deuda vencida bajó '+money(Math.abs(diff))+' desde la última carga');
+    }
+  }
+  if(wantsPagos || !anySpecific){
+    if(client.payments && client.payments.length){
+      parts.push('los últimos pagos registrados son: '+client.payments.map(p=>shortDate(p.fecha)+' por '+money(p.monto)).join(', '));
+    } else parts.push('no tiene pagos registrados');
+  }
+  return client.displayName+': '+parts.join('; ')+'.';
 }
 
 function getFilterOptions(){
@@ -714,6 +835,7 @@ const root = document.getElementById('app');
 
 function render(){
   root.innerHTML = '';
+  if(chatRootEl) chatRootEl.innerHTML = '';
   if(state.booting){ root.innerHTML = '<div class="empty"><span class="spin">⟳</span> Cargando...</div>'; return; }
   if(!state.configOk){ root.innerHTML = buildConfigNeeded(); return; }
   if(!state.dbOk){ root.innerHTML = buildDbNeeded(); return; }
@@ -727,6 +849,7 @@ function render(){
   else if(state.view==='informe') html += buildInforme();
   root.innerHTML = html;
   attachEvents();
+  renderChat();
   if(state.view==='mora-general') drawGeneralChart();
   if(state.view==='seguimiento') drawTrackChart();
 }
@@ -1230,10 +1353,96 @@ function copyClientReportForEmail(it){
 }
 
 // ---------- events ----------
+// ---------- asistente: panel de chat (independiente del resto de la app) ----------
+const chatRootEl = document.getElementById('chat-root');
+let speechRecognizer = null;
+
+function renderChat(){
+  if(!chatRootEl) return;
+  if(!state.chatOpen){
+    chatRootEl.innerHTML = '<button class="chat-fab" data-action="chat-toggle" title="Preguntarle al asistente">💬</button>';
+    return;
+  }
+  const voiceSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  let html = '<div class="chat-panel">'+
+    '<div class="chat-head"><span>🤖 Asistente de morosidad</span>'+
+      '<div class="chat-head-btns">'+
+        '<button data-action="chat-voice-toggle" class="'+(state.chatVoiceOn?'active':'')+'" title="Leer respuestas en voz alta">'+(state.chatVoiceOn?'🔊':'🔇')+'</button>'+
+        '<button data-action="chat-toggle" title="Cerrar">✕</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="chat-body" id="chat-body">';
+  if(state.chatMessages.length===0){
+    html += '<div class="chat-msg bot">Hola, preguntame por ejemplo: "¿cuánto debe La Nueva Metropol?", "últimos pagos de Empresa Mayo" o "¿aumentó la deuda de Ersa Urbano?".</div>';
+  }
+  state.chatMessages.forEach(m=>{
+    html += '<div class="chat-msg '+(m.role==='user'?'user':'bot')+'">'+esc(m.text)+'</div>';
+  });
+  html += '</div>'+
+    '<div class="chat-input-row">'+
+      (voiceSupported ? '<button class="mic'+(state.chatListening?' listening':'')+'" data-action="chat-mic" title="Hablar">🎤</button>' : '')+
+      '<input id="chat-input" placeholder="Escribí tu consulta..." autocomplete="off" />'+
+      '<button data-action="chat-send" title="Enviar">➤</button>'+
+    '</div>';
+  chatRootEl.innerHTML = html;
+  const body = document.getElementById('chat-body');
+  if(body) body.scrollTop = body.scrollHeight;
+  const inp = document.getElementById('chat-input');
+  if(inp) inp.focus();
+}
+
+function speakText(text){
+  if(!state.chatVoiceOn) return;
+  if(!('speechSynthesis' in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'es-AR';
+    u.rate = 1;
+    window.speechSynthesis.speak(u);
+  }catch(e){ /* si el navegador no puede hablar, no pasa nada */ }
+}
+
+function handleChatSend(overrideText){
+  const inputEl = document.getElementById('chat-input');
+  const text = (overrideText!=null ? overrideText : (inputEl?inputEl.value:'')).trim();
+  if(!text) return;
+  state.chatMessages.push({role:'user', text});
+  const answer = generateAnswer(text);
+  state.chatMessages.push({role:'bot', text:answer});
+  renderChat();
+  speakText(answer);
+}
+
+function toggleChatMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return;
+  if(state.chatListening){
+    if(speechRecognizer) speechRecognizer.stop();
+    return;
+  }
+  speechRecognizer = new SR();
+  speechRecognizer.lang = 'es-AR';
+  speechRecognizer.interimResults = false;
+  speechRecognizer.maxAlternatives = 1;
+  speechRecognizer.onstart = ()=>{ state.chatListening = true; renderChat(); };
+  speechRecognizer.onerror = ()=>{ state.chatListening = false; renderChat(); };
+  speechRecognizer.onend = ()=>{ state.chatListening = false; renderChat(); };
+  speechRecognizer.onresult = (e)=>{
+    const transcript = e.results[0][0].transcript;
+    handleChatSend(transcript);
+  };
+  try{ speechRecognizer.start(); }catch(e){ state.chatListening=false; renderChat(); }
+}
+
 function attachEvents(){
-  root.addEventListener('click', onRootClick);
-  root.addEventListener('input', onRootInput);
-  root.addEventListener('change', onRootChange);
+  document.body.addEventListener('click', onRootClick);
+  document.body.addEventListener('input', onRootInput);
+  document.body.addEventListener('change', onRootChange);
+  document.body.addEventListener('keydown', onBodyKeydown);
+}
+function onBodyKeydown(e){
+  if(e.target && e.target.id==='chat-input' && e.key==='Enter'){ handleChatSend(); }
 }
 function onRootClick(e){
   const btn = e.target.closest('[data-action]');
@@ -1273,7 +1482,11 @@ function onRootClick(e){
     if(it) copyClientReportForEmail(it);
   } else if(action==='plancuotas-upload'){ handlePlanCuotasFileProcess();
   } else if(action==='plancuotas-add'){ handleAddPlanCuota();
-  } else if(action==='plancuotas-delete'){ handleDeletePlanCuota(btn.dataset.grupo); }
+  } else if(action==='plancuotas-delete'){ handleDeletePlanCuota(btn.dataset.grupo);
+  } else if(action==='chat-toggle'){ state.chatOpen = !state.chatOpen; renderChat();
+  } else if(action==='chat-send'){ handleChatSend();
+  } else if(action==='chat-mic'){ toggleChatMic();
+  } else if(action==='chat-voice-toggle'){ state.chatVoiceOn = !state.chatVoiceOn; renderChat(); }
 }
 function onRootInput(e){
   if(e.target.id==='search-input'){ state.search = e.target.value; refreshDashboardList(); }
