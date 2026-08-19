@@ -43,6 +43,8 @@
   .nav button{background:transparent;border:none;color:#cbd5e1;padding:7px 12px;border-radius:6px;font-size:13px;font-weight:500;}
   .nav button.active{background:var(--teal);color:var(--dark);}
   .btn-ghost{display:flex;align-items:center;gap:6px;background:transparent;border:none;color:#cbd5e1;padding:7px 12px;border-radius:6px;font-size:13px;}
+  .btn-ghost-dark{background:transparent;border:none;color:var(--teal-dark);font-size:13px;font-weight:500;cursor:pointer;padding:0;}
+  .btn-ghost-dark:hover{text-decoration:underline;}
   .btn-ghost:hover{background:#1e293b;color:#fff;}
 
   main{max-width:1100px;margin:0 auto;padding:32px 24px;}
@@ -323,12 +325,15 @@ function clientsFromSnapshot(snap){
   });
 }
 
-function aggregateSnapshotFiltered(snap, estadoFilter, gerenciaFilter){
+function aggregateSnapshotFiltered(snap, estadoFilter, gerenciaFilter, minCuotasAdeudadas){
+  const minCuotas = Number(minCuotasAdeudadas);
+  const hasMinFilter = minCuotasAdeudadas!=='' && minCuotasAdeudadas!=null && !isNaN(minCuotas);
   let impago=0, precancelable=0, adeudado=0, contratos=0, clientesEnMora=0, clientesCount=0;
   for(const c of Object.values(snap.clients)){
     let clienteImpago=0, tieneAlguno=false;
     for(const ct of Object.values(c.contracts)){
       if(!estadoFilter.has(ct.estado) || !gerenciaFilter.has(ct.gerencia)) continue;
+      if(hasMinFilter && ct.totalAdeudado < minCuotas) continue;
       impago += ct.valorTotalImpago; precancelable += ct.valorTotalPrecancelable; adeudado += ct.totalAdeudado; contratos += 1;
       clienteImpago += ct.valorTotalImpago; tieneAlguno = true;
     }
@@ -399,6 +404,7 @@ const state = {
   planCuotasFile:null, planCuotasEditGrupo:'', planCuotasEditCuotas:'',
   informeGerencia:'', informeLoaded:false,
   chatOpen:false, chatMessages:[], chatVoiceOn:true, chatListening:false, chatLastClientKey:null,
+  minCuotasAdeudadas:'',
 };
 let generalChart=null, trackChart=null;
 
@@ -607,9 +613,14 @@ function buildEstadoGerenciaChecklist(){
     '</div></div>';
 }
 
+function passesMinCuotas(ct){
+  const min = Number(state.minCuotasAdeudadas);
+  if(!state.minCuotasAdeudadas || isNaN(min)) return true;
+  return ct.totalAdeudado >= min;
+}
 function getFilteredClients(){
   let list = state.clients.map(c=>{
-    const contractsFiltered = c.contracts.filter(ct=> state.estadoFilter.has(ct.estado) && state.gerenciaFilter.has(ct.gerencia));
+    const contractsFiltered = c.contracts.filter(ct=> state.estadoFilter.has(ct.estado) && state.gerenciaFilter.has(ct.gerencia) && passesMinCuotas(ct));
     const totalImpago = contractsFiltered.reduce((s,x)=>s+x.valorTotalImpago,0);
     const totalPrecancelable = contractsFiltered.reduce((s,x)=>s+x.valorTotalPrecancelable,0);
     return Object.assign({}, c, {contractsFiltered, totalImpago, totalPrecancelable});
@@ -798,7 +809,7 @@ async function loadGeneralHistory(){
 }
 // ídem para la mora general: recalcula a partir de las fotos ya descargadas
 function computeGeneralHistory(){
-  return state.generalRawSnapshots.map(snap=> aggregateSnapshotFiltered(snap, state.estadoFilter, state.gerenciaFilter));
+  return state.generalRawSnapshots.map(snap=> aggregateSnapshotFiltered(snap, state.estadoFilter, state.gerenciaFilter, state.minCuotasAdeudadas));
 }
 
 // ---------- cuotas totales por plan (tabla de referencia, no viene en DEUDORES) ----------
@@ -926,7 +937,10 @@ function buildHeader(){
 function buildUpload(){
   const lastNotice = state.snapshotDates.length ?
     '<div class="chip" style="color:#64748b;background:#fff;border:1px solid var(--border);border-radius:8px;padding:7px 12px;width:fit-content;margin-bottom:20px;">⏱ Última foto guardada: <b class="font-num">'+esc(shortDate(state.snapshotDates[state.snapshotDates.length-1]))+'</b> · '+state.snapshotDates.length+' foto(s) en total</div>' : '';
+  const backLink = state.clients.length ?
+    '<button class="btn-ghost-dark" data-action="cancel-upload" style="margin-bottom:14px;">← Volver al panel sin subir nada</button>' : '';
   return '<div class="narrow">'+
+    backLink+
     '<h2 class="section-title">Cargar archivos del día</h2>'+
     '<p class="section-sub">El archivo de deudores es obligatorio siempre (refleja el estado actual completo). El de recibos es opcional: subí solo los pagos nuevos que todavía no cargaste — se van sumando a los que ya tenés guardados, no hace falta subir el historial completo cada vez.</p>'+
     '<div class="banner info">ℹ El historial es compartido: si tu compañero también usa esta página, ambos ven las mismas fotos y los mismos recibos acumulados.</div>'+
@@ -954,6 +968,12 @@ function buildDropzone(id,label,hint,file){
   '</label>';
 }
 
+function buildMinCuotasFilter(){
+  return '<div class="filter-group"><label class="title">Cuotas adeudadas</label>'+
+    '<input type="number" min="0" id="min-cuotas-input" placeholder="mínimo, ej: 3" value="'+esc(state.minCuotasAdeudadas)+'" '+
+    'style="width:120px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;" /></div>';
+}
+
 function buildDashboard(){
   const filtered = getFilteredClients();
   const totalImpago = filtered.reduce((s,c)=>s+c.totalImpago,0);
@@ -974,6 +994,7 @@ function buildDashboard(){
   html += '<div class="filter-bar">'+
     '<div class="search-wrap"><span>🔎</span><input id="search-input" placeholder="Buscar cliente..." value="'+esc(state.search)+'" /></div>'+
     buildEstadoGerenciaChecklist()+
+    buildMinCuotasFilter()+
     '<div class="filter-group"><label class="title">Orden</label><div style="display:flex;gap:8px;">'+
       '<select id="sort-field">'+
         ['deuda:Deuda vencida','planes:Cantidad de planes','variacion:Variación de deuda','nombre:Nombre'].map(o=>{
@@ -981,6 +1002,7 @@ function buildDashboard(){
         }).join('')+
       '</select>'+
       '<button class="btn" id="sort-dir-btn" data-action="sort-dir">'+(state.sortDir==='desc'?'↓ Mayor a menor':'↑ Menor a mayor')+'</button>'+
+      '<button class="btn" data-action="download-dashboard-excel">⬇ Descargar Excel</button>'+
     '</div></div>'+
   '</div>';
 
@@ -1053,7 +1075,9 @@ function buildClientDetail(c){
 function buildMoraGeneral(){
   let html = '<h2 class="section-title">Mora general en el tiempo</h2>'+
     '<p class="section-sub">Evolución agregada de todos los clientes, tomada de cada foto guardada al procesar el archivo de deudores.</p>';
-  html += '<div class="filter-bar">'+buildEstadoGerenciaChecklist()+'</div>';
+  html += '<div class="filter-bar">'+buildEstadoGerenciaChecklist()+buildMinCuotasFilter()+
+    '<div class="filter-group"><label class="title">&nbsp;</label><button class="btn" data-action="download-general-excel">⬇ Descargar Excel</button></div>'+
+  '</div>';
   if(state.generalLoading){ html += '<div class="empty"><span class="spin">⟳</span> Cargando historial...</div>'; return html+'</main>'; }
   const history = computeGeneralHistory();
   if(history.length===0){ html += '<div class="muted-italic">Todavía no hay suficientes fotos guardadas.</div>'; return html+'</main>'; }
@@ -1345,6 +1369,72 @@ async function exportAllReportsExcel(items){
   downloadBlob(buf, 'Informe_cuotas_'+sanitizeFilename(state.informeGerencia)+'.xlsx');
 }
 
+// ---------- exportar Resumen y Mora general con los filtros aplicados ----------
+function filtersSummaryText(){
+  const {estadoOpts, gerenciaOpts} = getFilterOptions();
+  const estadoTxt = state.estadoFilter.size===estadoOpts.length ? 'todos' : Array.from(state.estadoFilter).join(', ');
+  const gerenciaTxt = state.gerenciaFilter.size===gerenciaOpts.length ? 'todas' : Array.from(state.gerenciaFilter).join(', ');
+  const cuotasTxt = state.minCuotasAdeudadas ? ('≥ '+state.minCuotasAdeudadas) : 'sin filtro';
+  return 'Estado: '+estadoTxt+' · Gerencia: '+gerenciaTxt+' · Cuotas adeudadas: '+cuotasTxt;
+}
+async function exportDashboardExcel(){
+  const filtered = getFilteredClients();
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Resumen');
+  ws.columns = [{width:34},{width:12},{width:18},{width:18}];
+  ws.mergeCells('A1:D1');
+  ws.getCell('A1').value = 'Resumen de morosidad — '+filtersSummaryText();
+  ws.getCell('A1').font = {italic:true, size:10, color:{argb:'FF64748B'}};
+  ws.getRow(1).height = 18;
+  const headerRow = 2;
+  ['Cliente','Contratos','Deuda vencida','A vencer'].forEach((h,i)=>{
+    const cell = ws.getCell(headerRow, i+1);
+    cell.value = h; cell.font = {bold:true};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFD9D9D9'}};
+    cell.border = thinBorderAll();
+  });
+  let r = headerRow+1;
+  filtered.forEach(c=>{
+    ws.getCell(r,1).value = c.displayName;
+    ws.getCell(r,2).value = c.contractsFiltered.length;
+    ws.getCell(r,3).value = c.totalImpago; ws.getCell(r,3).numFmt = '"$"#,##0';
+    ws.getCell(r,4).value = c.totalPrecancelable; ws.getCell(r,4).numFmt = '"$"#,##0';
+    for(let col=1;col<=4;col++) ws.getCell(r,col).border = thinBorderAll();
+    r++;
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(buf, 'Resumen_morosidad_'+todayISO()+'.xlsx');
+}
+async function exportGeneralExcel(){
+  const history = computeGeneralHistory();
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Mora general');
+  ws.columns = [{width:16},{width:16},{width:12},{width:18},{width:18}];
+  ws.mergeCells('A1:E1');
+  ws.getCell('A1').value = 'Mora general en el tiempo — '+filtersSummaryText();
+  ws.getCell('A1').font = {italic:true, size:10, color:{argb:'FF64748B'}};
+  ws.getRow(1).height = 18;
+  const headerRow = 2;
+  ['Fecha de corte','Clientes en mora','Contratos','Deuda vencida total','A vencer total'].forEach((h,i)=>{
+    const cell = ws.getCell(headerRow, i+1);
+    cell.value = h; cell.font = {bold:true};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFD9D9D9'}};
+    cell.border = thinBorderAll();
+  });
+  let r = headerRow+1;
+  history.forEach(h=>{
+    ws.getCell(r,1).value = shortDate(h.date);
+    ws.getCell(r,2).value = h.clientesEnMora;
+    ws.getCell(r,3).value = h.contratos;
+    ws.getCell(r,4).value = h.impago; ws.getCell(r,4).numFmt = '"$"#,##0';
+    ws.getCell(r,5).value = h.precancelable; ws.getCell(r,5).numFmt = '"$"#,##0';
+    for(let col=1;col<=5;col++) ws.getCell(r,col).border = thinBorderAll();
+    r++;
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(buf, 'Mora_general_'+todayISO()+'.xlsx');
+}
+
 // ---------- copiar para pegar en el cuerpo de un mail ----------
 function buildClientReportEmailHtml(it){
   const th = 'style="border:1px solid #94a3b8;padding:6px 10px;font-size:12px;background:#D9D9D9;font-weight:bold;text-align:center;"';
@@ -1528,6 +1618,9 @@ function onRootClick(e){
     }
   } else if(action==='process'){ handleProcess();
   } else if(action==='reset-upload'){ resetToUpload();
+  } else if(action==='cancel-upload'){
+    state.view='dashboard'; state.deudoresFile=null; state.recibosFile=null; state.error=''; state.notice='';
+    render();
   } else if(action==='sort-dir'){
     state.sortDir = state.sortDir==='desc' ? 'asc' : 'desc';
     refreshDashboardList();
@@ -1550,7 +1643,9 @@ function onRootClick(e){
   } else if(action==='chat-toggle'){ state.chatOpen = !state.chatOpen; renderChat();
   } else if(action==='chat-send'){ handleChatSend();
   } else if(action==='chat-mic'){ toggleChatMic();
-  } else if(action==='chat-voice-toggle'){ state.chatVoiceOn = !state.chatVoiceOn; renderChat(); }
+  } else if(action==='chat-voice-toggle'){ state.chatVoiceOn = !state.chatVoiceOn; renderChat();
+  } else if(action==='download-dashboard-excel'){ exportDashboardExcel();
+  } else if(action==='download-general-excel'){ exportGeneralExcel(); }
 }
 function onRootInput(e){
   if(e.target.id==='search-input'){ state.search = e.target.value; refreshDashboardList(); }
@@ -1560,6 +1655,7 @@ function onRootInput(e){
   else if(e.target.id==='plancuotas-file'){ state.planCuotasFile = e.target.files[0]||null; }
   else if(e.target.id==='plancuotas-grupo'){ state.planCuotasEditGrupo = e.target.value; }
   else if(e.target.id==='plancuotas-cuotas'){ state.planCuotasEditCuotas = e.target.value; }
+  else if(e.target.id==='min-cuotas-input'){ state.minCuotasAdeudadas = e.target.value; refreshFilteredView(); }
 }
 function onRootChange(e){
   if(e.target.id==='sort-field'){ state.sortField = e.target.value; refreshDashboardList(); }
@@ -1603,6 +1699,8 @@ function refreshDashboardList(){
 
 // ---------- boot ----------
 (async function init(){
+  attachEvents(); // activo la escucha de clics/teclas desde el arranque, así el
+                   // botón "Entrar" de la contraseña funciona sin esperar a estar logueado
   state.configOk = configLooksValid();
   if(!state.configOk){ state.booting=false; render(); return; }
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
