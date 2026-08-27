@@ -484,25 +484,32 @@ function levenshtein(a,b){
 }
 // busca el/los clientes que mejor matchean con lo que se preguntó, tolerando
 // errores de tipeo y que falten palabras (S.A., S.R.L., etc no cuentan)
+// en español "b" y "v" suenan igual (por eso se transcriben/escriben mal
+// todo el tiempo); las tratamos como intercambiables al comparar
+function phoneticKey(w){ return w.replace(/V/g,'B'); }
+
 function findClientMatches(queryNorm, clients){
   const queryWords = queryNorm.split(' ').filter(w=>w.length>1);
   const scored = clients.map(c=>{
     const nameNorm = normName(c.displayName);
     let score = 0;
-    if(nameNorm && queryNorm.includes(nameNorm)){
+    if(nameNorm && (queryNorm.includes(nameNorm) || phoneticKey(queryNorm).includes(phoneticKey(nameNorm)))){
       score = 100;
     } else {
       const nameWords = Array.from(new Set(nameNorm.split(' ').filter(w=>w.length>2 && !NAME_STOPWORDS.has(w))));
       if(nameWords.length===1){
-        // una sola palabra distintiva: sin tolerancia a errores (muy fácil "coincidir" por casualidad)
-        score = queryWords.includes(nameWords[0]) ? 50 : 0;
+        // una sola palabra distintiva: sin tolerancia a errores de tipeo,
+        // pero sí toleramos la confusión b/v (muy común al hablar y transcribir)
+        const nw = nameWords[0];
+        score = queryWords.some(qw => qw===nw || phoneticKey(qw)===phoneticKey(nw)) ? 50 : 0;
       } else if(nameWords.length>1){
         // una coincidencia EXACTA de una palabra clave (ej. "ERSA") ya es señal fuerte,
         // aunque falten otras palabras del nombre completo; una coincidencia aproximada
-        // (typo) pesa la mitad para no confundir nombres parecidos por casualidad
+        // (typo) pesa menos para no confundir nombres parecidos por casualidad
         let weighted = 0, matchedCount = 0;
         for(const nw of nameWords){
           if(queryWords.includes(nw)){ weighted += 1; matchedCount++; }
+          else if(queryWords.some(qw => phoneticKey(qw)===phoneticKey(nw))){ weighted += 0.9; matchedCount++; }
           else if(queryWords.some(qw => levenshtein(qw,nw) <= Math.max(1, Math.floor(nw.length*0.25)))){
             weighted += 0.5; matchedCount++;
           }
@@ -518,11 +525,17 @@ function findClientMatches(queryNorm, clients){
 }
 
 // palabras "de relleno" o de intención (no cuentan como intento de nombrar a alguien)
-const FOLLOWUP_FILLER = new Set(['QUE','Y','CUANTO','CUANTOS','CUANTA','CUANTAS','TIENE','TIENEN','ES','LA','EL','LOS','LAS','DE','DEL',
-  'UN','UNA','ESE','ESA','ESTE','ESTA','TAMBIEN','AHORA','ME','DECIS','DECI','PODES','CONTAME','SOBRE','DEBE','DEBEN','CUAL','CUALES',
-  'PAGO','PAGOS','PAGA','PAGAS','PAGADAS','RECIBO','RECIBOS','ABONO','ABONOS','COBRO','COBROS','DEUDA','DEUDAS','VENCID','VENCIDA','VENCIDAS','VENCIDO','VENCIDOS',
+const FOLLOWUP_FILLER = new Set(['QUE','Y','O','CUANTO','CUANTOS','CUANTA','CUANTAS','TIENE','TIENEN','TENGO','TENES','TENEMOS','ES','SON','ERA','ERAN',
+  'ESTA','ESTAN','ESTOY','ESTAS','ESTAMOS','FUE','FUERON','SERA','SERAN','HAY','LA','EL','LOS','LAS','DE','DEL',
+  'UN','UNA','UNOS','UNAS','ESE','ESA','ESOS','ESAS','ESTE','ESTA','ESTOS','ESTAS','ESO','ESTO','MISMO','MISMA',
+  'TAMBIEN','AHORA','ME','TE','SE','NOS','DECIS','DECI','DECIME','DIME','PODES','PODRIAS','MOSTRAME','MOSTRAR','DAME',
+  'QUIERO','QUISIERA','NECESITO','CONTAME','SOBRE','RESPECTO','ACERCA','DEBE','DEBEN','CUAL','CUALES','QUIEN','QUIENES',
+  'PAGO','PAGOS','PAGA','PAGAS','PAGADAS','PAGADO','RECIBO','RECIBOS','ABONO','ABONOS','COBRO','COBROS','DEUDA','DEUDAS',
+  'VENCID','VENCIDA','VENCIDAS','VENCIDO','VENCIDOS','ULTIMO','ULTIMOS','ULTIMA','ULTIMAS','PRIMERO','PRIMEROS','PRIMERA',
   'CIRCULO','CIRCULOS','CONTRATO','CONTRATOS','PLAN','PLANES','ESTADO','ADJUDICADO','ADJUDICADOS','AGRUPADO','AGRUPADOS',
-  'AUMENTO','AUMENTA','INCREMENTO','SUBIO','BAJO','DISMINUYO','REDUJO','VARIACION','CAMBIO','CAMBIO','CUOTA','CUOTAS','IMPAGA','IMPAGAS','A','VENCER','POR']);
+  'AUMENTO','AUMENTA','INCREMENTO','SUBIO','BAJO','DISMINUYO','REDUJO','VARIACION','CAMBIO','CUOTA','CUOTAS','IMPAGA','IMPAGAS',
+  'A','VENCER','POR','FAVOR','BIEN','OK','DALE','ENTONCES','BUENO','CLARO','OSEA',
+  'EN','CON','SIN','PARA','ENTRE','DESDE','HASTA','SEGUN','TOTAL','ACUMULADO','ACUMULADA','SUMA']);
 // si quedan 2+ palabras "sueltas" sin reconocer, asumimos que intentó nombrar
 // a alguien nuevo (aunque no lo hayamos encontrado) — ahí NO conviene
 // contestar sobre el cliente anterior, mejor avisar que no lo encontramos
@@ -531,10 +544,83 @@ function looksLikeNameAttempt(queryNorm){
   return leftover.length >= 2;
 }
 
+// ---------- asistente: preguntas sobre la pestaña Presupuesto ----------
+const MESES_MAP = {ENERO:1,ENE:1,FEBRERO:2,FEB:2,MARZO:3,MAR:3,ABRIL:4,ABR:4,MAYO:5,MAY:5,JUNIO:6,JUN:6,
+  JULIO:7,JUL:7,AGOSTO:8,AGO:8,SEPTIEMBRE:9,SETIEMBRE:9,SEP:9,SET:9,OCTUBRE:10,OCT:10,NOVIEMBRE:11,NOV:11,DICIEMBRE:12,DIC:12};
+function isPresupuestoQuery(q){
+  return /PRESUPUEST|FACTURA|EJECUCION|GASTO.*ADMINISTRATIV|ADMINISTRATIV.*GASTO/.test(q) || (/COBR/.test(q) && /BANC/.test(q));
+}
+function findMonthInQuery(q){
+  const words = q.split(' ');
+  let monthNum = null;
+  for(const w of words){ if(MESES_MAP[w]){ monthNum = MESES_MAP[w]; break; } }
+  if(!monthNum) return null;
+  const months = getBudgetMonths();
+  const yearMatch = q.match(/20\d\d/);
+  if(yearMatch){
+    const target = yearMatch[0]+'-'+String(monthNum).padStart(2,'0');
+    return months.includes(target) ? target : null;
+  }
+  // sin año explícito: la ocurrencia más reciente de ese mes dentro de lo cargado
+  const candidates = months.filter(m=> Number(m.split('-')[1])===monthNum);
+  return candidates.length ? candidates[candidates.length-1] : null;
+}
+function generatePresupuestoAnswer(rawQuery){
+  if(state.presupuestoData.size===0){
+    return 'Todavía no tengo cargados los datos de presupuesto. Entrá un momento a la pestaña "Presupuesto" (o esperá unos segundos si la acabás de abrir) y volvé a preguntarme.';
+  }
+  const q = normName(rawQuery);
+  const months = getBudgetMonths();
+  const wantsTotal = /TOTAL|ACUMULAD|SUMA/.test(q);
+  const monthFound = wantsTotal ? null : findMonthInQuery(q);
+
+  const wantsFacturacionGastos = /FACTURA/.test(q) && /(GASTO|ADMINISTRATIV)/.test(q);
+  const wantsFacturacionCuota = /FACTURA/.test(q) && !wantsFacturacionGastos;
+  const wantsPresupuestoGastos = /PRESUPUEST/.test(q);
+  const wantsGastosCobrados = /GASTO/.test(q) && /COBRAD/.test(q);
+  const wantsCobranza = /COBR/.test(q) && !wantsGastosCobrados;
+  const wantsEjecucion = /EJECUCION/.test(q);
+  const anySpecific = wantsFacturacionGastos||wantsFacturacionCuota||wantsPresupuestoGastos||wantsCobranza||wantsGastosCobrados||wantsEjecucion;
+
+  function sumField(field){ return months.reduce((s,m)=> s+((state.presupuestoData.get(m)||emptyPresupuestoRow())[field]||0), 0); }
+
+  if(!monthFound){
+    const parts = [];
+    if(wantsFacturacionCuota || !anySpecific) parts.push('la facturación de cuota acumulada es de '+money(sumField('facturacionCuota')));
+    if(wantsFacturacionGastos || !anySpecific) parts.push('la facturación de gastos administrativos acumulada es de '+money(sumField('facturacionGastosAdmin')));
+    if(wantsPresupuestoGastos || !anySpecific) parts.push('el presupuesto de gastos administrativos acumulado es de '+money(sumField('presupuestoGastosAdmin')));
+    if(wantsCobranza || !anySpecific) parts.push('la cobranza bancaria acumulada es de '+money(sumField('cobranzaBancaria')));
+    if(wantsGastosCobrados || !anySpecific) parts.push('los gastos administrativos cobrados acumulados son de '+money(sumField('gastosAdminCobrados')));
+    if(wantsEjecucion){
+      const pres = sumField('presupuestoGastosAdmin'), cob = sumField('gastosAdminCobrados');
+      parts.push('la ejecución acumulada del presupuesto de gastos administrativos es del '+(pres>0?(cob/pres*100).toFixed(1):'0')+'%');
+    }
+    const scope = wantsTotal ? ' (acumulado de todo el período cargado)' : ' (no identifiqué un mes puntual, te muestro el acumulado de todo el período cargado)';
+    return 'Sobre el presupuesto'+scope+': '+joinNatural(parts)+'.';
+  }
+
+  const row = state.presupuestoData.get(monthFound) || emptyPresupuestoRow();
+  const parts = [];
+  if(wantsFacturacionCuota || !anySpecific) parts.push('la facturación de cuota fue de '+money(row.facturacionCuota));
+  if(wantsFacturacionGastos || !anySpecific) parts.push('la facturación de gastos administrativos fue de '+money(row.facturacionGastosAdmin));
+  if(wantsPresupuestoGastos || !anySpecific) parts.push('el presupuesto de gastos administrativos fue de '+money(row.presupuestoGastosAdmin));
+  if(wantsCobranza || !anySpecific) parts.push('la cobranza bancaria fue de '+money(row.cobranzaBancaria));
+  if(wantsGastosCobrados || !anySpecific) parts.push('los gastos administrativos cobrados fueron de '+money(row.gastosAdminCobrados));
+  if(wantsEjecucion){
+    const pct = row.presupuestoGastosAdmin>0 ? (row.gastosAdminCobrados/row.presupuestoGastosAdmin*100).toFixed(1) : '0';
+    parts.push('la ejecución del presupuesto de gastos administrativos fue del '+pct+'%');
+  }
+  return 'En '+monthLabel(monthFound)+': '+joinNatural(parts)+'.';
+}
+
 function generateAnswer(rawQuery){
   if(!state.clients.length) return {text:'Todavía no hay datos cargados. Subí un archivo de deudores primero.', clientKey:null};
   const q = normName(rawQuery);
   if(!q) return {text:'No te escuché bien, ¿podés repetir la consulta?', clientKey:null};
+
+  if(isPresupuestoQuery(q)){
+    return {text: generatePresupuestoAnswer(rawQuery), clientKey:null};
+  }
 
   const matches = findClientMatches(q, state.clients);
   let client = null;
@@ -1705,7 +1791,7 @@ function renderChat(){
     '</div>'+
     '<div class="chat-body" id="chat-body">';
   if(state.chatMessages.length===0){
-    html += '<div class="chat-msg bot">Hola, soy Coli, tu asistente virtual. Preguntame por ejemplo si querés saber: "¿cuánto debe La Nueva Metropol?", "últimos pagos de Empresa Mayo" o "¿aumentó la deuda de Ersa Urbano?".</div>';
+    html += '<div class="chat-msg bot">Hola, soy Coli, tu asistente virtual. Preguntame por ejemplo si querés saber: "¿cuánto debe La Nueva Metropol?", "últimos pagos de Empresa Mayo", "¿aumentó la deuda de Ersa Urbano?" o "¿cuánto facturamos de cuota en julio?".</div>';
   }
   state.chatMessages.forEach(m=>{
     html += '<div class="chat-msg '+(m.role==='user'?'user':'bot')+'">'+esc(m.text)+'</div>';
@@ -1842,7 +1928,16 @@ function onRootClick(e){
   } else if(action==='plancuotas-upload'){ handlePlanCuotasFileProcess();
   } else if(action==='plancuotas-add'){ handleAddPlanCuota();
   } else if(action==='plancuotas-delete'){ handleDeletePlanCuota(btn.dataset.grupo);
-  } else if(action==='chat-toggle'){ state.chatOpen = !state.chatOpen; renderChat();
+  } else if(action==='chat-toggle'){
+    state.chatOpen = !state.chatOpen; renderChat();
+    if(state.chatOpen && !state.presupuestoLoaded && !state.presupuestoLoading && sb){
+      state.presupuestoLoading = true;
+      fetchPresupuesto().then(map=>{
+        state.presupuestoData = map;
+        getBudgetMonths().forEach(m=>{ if(!state.presupuestoData.has(m)) state.presupuestoData.set(m, emptyPresupuestoRow()); });
+        state.presupuestoLoaded = true;
+      }).catch(()=>{}).finally(()=>{ state.presupuestoLoading = false; });
+    }
   } else if(action==='chat-send'){ handleChatSend();
   } else if(action==='chat-mic'){ toggleChatMic();
   } else if(action==='chat-voice-toggle'){ state.chatVoiceOn = !state.chatVoiceOn; renderChat();
