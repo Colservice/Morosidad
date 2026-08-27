@@ -484,12 +484,19 @@ function levenshtein(a,b){
 }
 // busca el/los clientes que mejor matchean con lo que se preguntó, tolerando
 // errores de tipeo y que falten palabras (S.A., S.R.L., etc no cuentan)
-// en español "b" y "v" suenan igual (por eso se transcriben/escriben mal
-// todo el tiempo); las tratamos como intercambiables al comparar
-function phoneticKey(w){ return w.replace(/V/g,'B'); }
+// en español "b" y "v" suenan igual, y al hablar (sobre todo por reconocimiento
+// de voz) también se confunden con "p" (son todos sonidos labiales parecidos);
+// las tratamos como intercambiables al comparar
+function phoneticKey(w){ return w.replace(/[VP]/g,'B'); }
+function squish(s){ return s.replace(/ /g,''); }
 
 function findClientMatches(queryNorm, clients){
   const queryWords = queryNorm.split(' ').filter(w=>w.length>1);
+  // para la comparación "sin espacios" solo nos importan las palabras que
+  // podrían ser parte de un nombre, no toda la frase (si no, "cuántos
+  // círculos tiene X" nunca iba a coincidir con nada)
+  const leftoverForSquish = queryWords.filter(w=>!FOLLOWUP_FILLER.has(w));
+  const qSquish = squish(leftoverForSquish.join(' '));
   const scored = clients.map(c=>{
     const nameNorm = normName(c.displayName);
     let score = 0;
@@ -517,6 +524,12 @@ function findClientMatches(queryNorm, clients){
         const fullMatch = matchedCount === nameWords.length;
         score = Math.min(95, weighted*35 + (fullMatch?10:0));
       }
+      // "sin espacios": cubre el caso de un nombre real con espacio ("SUPER MAX")
+      // contra una consulta escrita/hablada toda junta ("supermax"), o al revés
+      const nSquish = squish(nameNorm.split(' ').filter(w=>!NAME_STOPWORDS.has(w)).join(' '));
+      if(nSquish.length>=5 && qSquish.length>=5 && (nSquish.includes(qSquish) || qSquish.includes(nSquish))){
+        score = Math.max(score, 85);
+      }
     }
     return {client:c, score};
   });
@@ -536,12 +549,15 @@ const FOLLOWUP_FILLER = new Set(['QUE','Y','O','CUANTO','CUANTOS','CUANTA','CUAN
   'AUMENTO','AUMENTA','INCREMENTO','SUBIO','BAJO','DISMINUYO','REDUJO','VARIACION','CAMBIO','CUOTA','CUOTAS','IMPAGA','IMPAGAS',
   'A','VENCER','POR','FAVOR','BIEN','OK','DALE','ENTONCES','BUENO','CLARO','OSEA',
   'EN','CON','SIN','PARA','ENTRE','DESDE','HASTA','SEGUN','TOTAL','ACUMULADO','ACUMULADA','SUMA']);
-// si quedan 2+ palabras "sueltas" sin reconocer, asumimos que intentó nombrar
-// a alguien nuevo (aunque no lo hayamos encontrado) — ahí NO conviene
-// contestar sobre el cliente anterior, mejor avisar que no lo encontramos
+// si quedan 2+ palabras "sueltas" sin reconocer, o una sola pero larga (5+
+// letras), asumimos que intentó nombrar a alguien nuevo (aunque no lo hayamos
+// encontrado) — ahí NO conviene contestar sobre el cliente anterior, mejor
+// avisar que no lo encontramos en vez de repetir una respuesta vieja
 function looksLikeNameAttempt(queryNorm){
   const leftover = queryNorm.split(' ').filter(w=>w.length>1 && !FOLLOWUP_FILLER.has(w));
-  return leftover.length >= 2;
+  if(leftover.length>=2) return true;
+  if(leftover.length===1 && leftover[0].length>=5) return true;
+  return false;
 }
 
 // ---------- asistente: preguntas sobre la pestaña Presupuesto ----------
