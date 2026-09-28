@@ -154,6 +154,32 @@
   .chat-input-row button.mic.listening{background:var(--rose);animation:pulse 1.2s infinite;}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,29,72,.5);}70%{box-shadow:0 0 0 9px rgba(225,29,72,0);}100%{box-shadow:0 0 0 0 rgba(225,29,72,0);}}
   .chat-hint{font-size:11px;color:#94a3b8;padding:0 12px 8px;}
+
+  /* ---- switcher de empresa ---- */
+  .empresa-switch{display:flex;background:#1e293b;border-radius:8px;padding:4px;gap:2px;}
+  .empresa-switch button{background:transparent;border:none;color:#cbd5e1;padding:7px 12px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;}
+  .empresa-switch button.active{background:#fff;color:var(--dark);}
+
+  /* ---- Transcol: matriz de riesgo ---- */
+  .semaforo-badge{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;font-weight:700;font-size:15px;}
+  .semaforo-badge.VERDE{background:#dcfce7;color:#166534;}
+  .semaforo-badge.AMARILLO{background:#fef9c3;color:#854d0e;}
+  .semaforo-badge.ROJO{background:#fee2e2;color:#991b1b;}
+  .score-bar-track{background:#e2e8f0;border-radius:20px;height:14px;overflow:hidden;}
+  .score-bar-fill{height:100%;border-radius:20px;transition:width .3s;}
+  .score-bar-fill.VERDE{background:#22c55e;}
+  .score-bar-fill.AMARILLO{background:#eab308;}
+  .score-bar-fill.ROJO{background:#ef4444;}
+  .doc-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;flex-wrap:wrap;}
+  .doc-row .doc-label{flex:1;min-width:160px;font-size:13px;font-weight:500;}
+  .doc-status{font-size:12px;padding:3px 9px;border-radius:20px;}
+  .doc-status.pendiente{background:#f1f5f9;color:#64748b;}
+  .doc-status.leyendo{background:var(--teal-light);color:var(--teal-dark);}
+  .doc-status.leido{background:#dcfce7;color:#166534;}
+  .doc-status.error{background:#fee2e2;color:#991b1b;}
+  .bloque-card{border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+  .bloque-card .bloque-head{display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:4px;}
+  .bloque-card .bloque-detalle{font-size:12.5px;color:var(--muted);}
 </style>
 </head>
 <body>
@@ -408,6 +434,18 @@ const state = {
   presupuestoData:new Map(), presupuestoLoaded:false, presupuestoLoading:false,
   presupuestoDirtyMonths:new Set(),
   presupuestoVisibleConcepts:new Set(['facturacionCuota','facturacionGastosAdmin','presupuestoGastosAdmin','cobranzaBancaria','gastosAdminCobrados']),
+  // ---- TRANSCOL: matriz de evaluación de riesgo ----
+  empresaActiva:'COLSERVICE', // 'COLSERVICE' | 'TRANSCOL'
+  riesgoView:'nueva', // 'nueva' | 'guardadas'
+  riesgoEvaluaciones:[], riesgoEvaluacionesLoaded:false, riesgoEvaluacionesLoading:false,
+  riesgoTipoPersona:'PJ', // 'PF' | 'PJ'
+  riesgoNombre:'',
+  riesgoDatos:{ canonMensualLeasing:'', regimenIngreso:'dependencia', antiguedadAnios:'',
+    veraz:null, balance:null, ddjjIva:[null,null,null], reciboSueldo:null, monotributo:null,
+    ddjjGanancias:null, constanciaCuit:null },
+  riesgoDocEstados:{}, // clave doc -> 'pendiente'|'leyendo'|'leido'|'error'
+  riesgoDocErrores:{},
+  riesgoVerDetalle:null, // id de evaluación guardada a mostrar en detalle
 };
 let generalChart=null, trackChart=null;
 
@@ -1077,7 +1115,9 @@ function render(){
   if(!state.authed){ root.innerHTML = buildAuth(); attachAuthEvents(); return; }
 
   let html = buildHeader();
-  if(state.view==='upload') html += buildUpload();
+  if(state.empresaActiva==='TRANSCOL'){
+    html += buildTranscol();
+  } else if(state.view==='upload') html += buildUpload();
   else if(state.view==='dashboard') html += buildDashboard();
   else if(state.view==='mora-general') html += buildMoraGeneral();
   else if(state.view==='seguimiento') html += buildSeguimiento();
@@ -1111,6 +1151,21 @@ function attachAuthEvents(){
 }
 
 function buildHeader(){
+  const switcher = '<div class="empresa-switch">'+
+    '<button data-action="switch-empresa" data-empresa="COLSERVICE" class="'+(state.empresaActiva==='COLSERVICE'?'active':'')+'">🚌 Colservice</button>'+
+    '<button data-action="switch-empresa" data-empresa="TRANSCOL" class="'+(state.empresaActiva==='TRANSCOL'?'active':'')+'">🛡️ Transcol</button>'+
+  '</div>';
+  if(state.empresaActiva==='TRANSCOL'){
+    const tabsT = '<div class="nav">'+
+      '<button data-action="goto-riesgo" data-riesgoview="nueva" class="'+(state.riesgoView==='nueva'?'active':'')+'">Nueva evaluación</button>'+
+      '<button data-action="goto-riesgo" data-riesgoview="guardadas" class="'+(state.riesgoView==='guardadas'?'active':'')+'">Evaluaciones guardadas</button>'+
+    '</div>';
+    return '<header class="app-header"><div class="header-inner">'+
+      '<div class="brand"><div class="brand-badge" style="background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;">🛡️</div>'+
+      '<div><h1 class="font-display">Transcol S.A.</h1><p>Matriz de Evaluación de Riesgo</p></div></div>'+
+      '<div style="display:flex;align-items:center;gap:14px;">'+switcher+tabsT+'</div>'+
+      '</div></header><main>';
+  }
   const tabs = state.view==='upload' ? '' :
     '<div class="nav">'+
       '<button data-action="goto" data-view="dashboard" class="'+(state.view==='dashboard'?'active':'')+'">Resumen</button>'+
@@ -1122,7 +1177,9 @@ function buildHeader(){
   return '<header class="app-header"><div class="header-inner">'+
     '<div class="brand"><div class="brand-badge"><img src="data:image/png;base64,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" alt="ColService"/></div><div><h1 class="font-display">Registro de Morosidad</h1>'+
     '<p>Cruce diario de deudores y pagos · datos compartidos con tu equipo</p></div></div>'+
-    (state.view!=='upload' ? '<div style="display:flex;align-items:center;gap:8px;">'+tabs+'</div>' : '')+
+    '<div style="display:flex;align-items:center;gap:14px;">'+switcher+
+    (state.view!=='upload' ? tabs : '')+
+    '</div>'+
     '</div></header><main>';
 }
 
@@ -1361,6 +1418,7 @@ function drawTrackChart(){
 }
 
 let presupuestoChart = null;
+let riesgoPendingFiles = {}; // archivos elegidos pero todavía no analizados por la IA
 
 // ---------- vista: información presupuestaria ----------
 function buildPresupuesto(){
@@ -1780,7 +1838,401 @@ function copyClientReportForEmail(it){
   render();
 }
 
-// ---------- events ----------
+// ============================================================
+// TRANSCOL S.A. — Matriz de Evaluación de Riesgo
+// ============================================================
+
+// ---------- Supabase: guardar/leer evaluaciones ----------
+async function fetchRiesgoEvaluaciones(){
+  const {data, error} = await sb.from('riesgo_evaluaciones').select('*').order('created_at', {ascending:false});
+  if(error) throw error;
+  return data || [];
+}
+async function saveRiesgoEvaluacion(ev){
+  const {error} = await sb.from('riesgo_evaluaciones').insert({
+    tipo_persona: ev.tipo, nombre: ev.nombre, datos: ev.datos,
+    puntaje_total: ev.resultado.puntaje, semaforo: ev.resultado.semaforo,
+    red_flags: ev.resultado.redFlags, mitigantes: ev.resultado.mitigantes,
+  });
+  if(error) throw error;
+}
+async function loadRiesgoEvaluaciones(){
+  state.riesgoEvaluacionesLoading = true; render();
+  try{ state.riesgoEvaluaciones = await fetchRiesgoEvaluaciones(); state.riesgoEvaluacionesLoaded = true; }
+  finally{ state.riesgoEvaluacionesLoading=false; render(); }
+}
+
+// ---------- llamar a la función de lectura de PDFs con IA ----------
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const result = reader.result; // "data:application/pdf;base64,XXXX"
+      const b64 = result.split(',')[1];
+      resolve(b64);
+    };
+    reader.onerror = ()=> reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+const RIESGO_DOC_LABELS = {
+  veraz: 'Informe Veraz/Nosis', balance: 'Balance General', ddjjIva0: 'DDJJ IVA (mes 1)',
+  ddjjIva1: 'DDJJ IVA (mes 2)', ddjjIva2: 'DDJJ IVA (mes 3)', reciboSueldo: 'Recibo de sueldo',
+  monotributo: 'Constancia/pagos de Monotributo', ddjjGanancias: 'DDJJ Ganancias/Bienes Personales',
+  constanciaCuit: 'Constancia de CUIT',
+};
+function docTipoFor(claveDoc){
+  if(claveDoc.startsWith('ddjjIva')) return 'ddjj_iva';
+  if(claveDoc==='reciboSueldo') return 'recibo_sueldo';
+  return claveDoc==='veraz' ? 'veraz' : claveDoc==='balance' ? 'balance' : claveDoc==='monotributo' ? 'monotributo'
+    : claveDoc==='ddjjGanancias' ? 'ddjj_ganancias' : claveDoc==='constanciaCuit' ? 'constancia_cuit' : claveDoc;
+}
+async function analizarDocumentoIA(claveDoc, file){
+  state.riesgoDocEstados[claveDoc] = 'leyendo';
+  state.riesgoDocErrores[claveDoc] = '';
+  render();
+  try{
+    const b64 = await fileToBase64(file);
+    const tipo = docTipoFor(claveDoc);
+    const {data, error} = await sb.functions.invoke('leer-documento', { body: { tipo, pdf_base64: b64 } });
+    if(error) throw error;
+    if(!data || data.error) throw new Error((data && data.error) || 'La IA no pudo leer el documento.');
+    if(claveDoc.startsWith('ddjjIva')){
+      const idx = Number(claveDoc.replace('ddjjIva',''));
+      state.riesgoDatos.ddjjIva[idx] = data.data;
+    } else {
+      state.riesgoDatos[claveDoc] = data.data;
+    }
+    state.riesgoDocEstados[claveDoc] = 'leido';
+  } catch(e){
+    state.riesgoDocEstados[claveDoc] = 'error';
+    state.riesgoDocErrores[claveDoc] = (e && e.message) || 'Error al analizar el documento.';
+  } finally { render(); }
+}
+
+// ---------- motor de scoring (idéntico al probado por separado) ----------
+function scorePF(d){
+  const blocks=[], redFlags=[];
+  let b1=0,b1detalle='';
+  const v=d.veraz;
+  if(!v){ b1=0; b1detalle='Falta el informe Veraz/Nosis.'; redFlags.push('No se cargó el informe Veraz/Nosis.'); }
+  else{
+    const situ=v.situacion_bcra;
+    if(situ==null){ b1=0; b1detalle='No se pudo determinar la situación BCRA.'; }
+    else if(situ>=3 || v.embargos_o_juicios_activos || (v.cheques_rechazados && !v.cheques_rechazados_regularizados)){
+      b1=0; b1detalle='Situación BCRA '+situ+(v.embargos_o_juicios_activos?', con embargos/juicios activos':'')+'.';
+      redFlags.push('Veraz/Nosis: situación de riesgo (BCRA '+situ+(v.embargos_o_juicios_activos?', embargos/juicios activos':'')+').');
+    } else if(situ===1 && !v.cheques_rechazados){ b1=35; b1detalle='Situación 1, sin cheques rechazados ni mora registrada.'; }
+    else if(situ===1 && v.cheques_rechazados && v.cheques_rechazados_regularizados){ b1=20; b1detalle='Situación 1 con cheques rechazados ya regularizados.'; }
+    else if(situ===2){ b1=10; b1detalle='Situación 2 / deudas comerciales en gestión.'; }
+    else { b1=10; b1detalle='Situación '+situ+'.'; }
+  }
+  blocks.push({nombre:'Informe Veraz/Nosis', pts:b1, max:35, detalle:b1detalle});
+
+  let b2=0,b2detalle='';
+  const canon=Number(d.canonMensualLeasing)||0;
+  let ingresoMensual=null;
+  if(d.reciboSueldo && d.reciboSueldo.sueldo_neto) ingresoMensual=Number(d.reciboSueldo.sueldo_neto);
+  else if(d.ddjjGanancias && d.ddjjGanancias.ingresos_declarados) ingresoMensual=Number(d.ddjjGanancias.ingresos_declarados)/12;
+  if(!ingresoMensual || !canon){ b2=0; b2detalle='Faltan datos de canon o ingreso mensual para calcular la relación.'; }
+  else{
+    const ratio=(canon/ingresoMensual)*100;
+    if(ratio>50){ b2=0; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; redFlags.push('Relación Canon Leasing / Ingreso Neto mayor al 50% ('+ratio.toFixed(1)+'%).'); }
+    else if(ratio<=20){ b2=30; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; }
+    else if(ratio<=35){ b2=20; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; }
+    else { b2=10; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; }
+  }
+  blocks.push({nombre:'Capacidad de pago', pts:b2, max:30, detalle:b2detalle});
+
+  let b3=0,b3detalle='';
+  if(d.regimenIngreso==='dependencia'){
+    const r=d.reciboSueldo, ant=Number(d.antiguedadAnios)||0;
+    if(!r){ b3=0; b3detalle='Falta el recibo de sueldo.'; }
+    else if(ant>3){ b3=20; b3detalle='Empleo estable, antigüedad mayor a 3 años.'; }
+    else if(ant>=1){ b3=12; b3detalle='Antigüedad entre 1 y 3 años.'; }
+    else { b3=5; b3detalle='Antigüedad menor a 1 año.'; }
+  } else if(d.regimenIngreso==='autonomo'){
+    const dg=d.ddjjGanancias, mono=d.monotributo;
+    if(dg){ b3=20; b3detalle='DDJJ de Ganancias/Bienes Personales con patrimonio solvente.'; }
+    else if(mono && mono.pagos_al_dia && (mono.meses_cubiertos||0)>=6){ b3=20; b3detalle='Monotributo al día, últimos 6 pagos cubiertos.'; }
+    else if(mono){ b3=10; b3detalle='Monotributo con pagos parciales o moratoria.'; }
+    else { b3=0; b3detalle='Falta documentación de respaldo de ingresos.'; }
+  } else { b3=0; b3detalle='No se indicó el régimen de ingresos (dependencia / autónomo).'; }
+  blocks.push({nombre:'Respaldo de ingresos', pts:b3, max:20, detalle:b3detalle});
+
+  let b4=0,b4detalle='';
+  const cc=d.constanciaCuit;
+  if(!cc){ b4=0; b4detalle='Falta la constancia de CUIT/CUIL.'; }
+  else if(!cc.impuestos_con_deuda_o_incumplimiento && String(cc.estado_clave||'').toLowerCase().includes('activ')){ b4=15; b4detalle='CUIT/CUIL activo, sin deudas ni observaciones.'; }
+  else { b4=8; b4detalle='Inconsistencia menor o trámite de actualización pendiente.'; }
+  blocks.push({nombre:'Identificación fiscal', pts:b4, max:15, detalle:b4detalle});
+
+  return finalizeRiesgoScore(blocks, redFlags, 'PF');
+}
+function scorePJ(d){
+  const blocks=[], redFlags=[];
+  let b1=0,b1detalle='';
+  const v=d.veraz;
+  if(!v){ b1=0; b1detalle='Falta el informe Veraz/Nosis.'; redFlags.push('No se cargó el informe Veraz/Nosis.'); }
+  else{
+    const situ=v.situacion_bcra;
+    if(situ==null){ b1=0; b1detalle='No se pudo determinar la situación BCRA.'; }
+    else if(situ>=3 || v.embargos_o_juicios_activos){
+      b1=0; b1detalle='Situación BCRA '+situ+(v.embargos_o_juicios_activos?', con embargos/juicios activos':'')+'.';
+      redFlags.push('Veraz/Nosis: situación de riesgo (BCRA '+situ+(v.embargos_o_juicios_activos?', embargos fiscales o judiciales':'')+').');
+    } else if(situ===1 && !v.cheques_rechazados){ b1=25; b1detalle='Situación 1 en la empresa y sus socios/directores.'; }
+    else if(situ===1 && v.cheques_rechazados){ b1=15; b1detalle='Situación 1 empresa, cheques s/fondo ya pagados.'; }
+    else if(situ===2){ b1=8; b1detalle='Situación 2 en la empresa.'; }
+    else { b1=8; b1detalle='Situación '+situ+'.'; }
+  }
+  blocks.push({nombre:'Informe Veraz/Nosis (empresa y directivos)', pts:b1, max:25, detalle:b1detalle});
+
+  let b2=0,b2detalle='';
+  const bal=d.balance;
+  if(!bal){ b2=0; b2detalle='Falta el balance general.'; redFlags.push('No se cargó el balance general.'); }
+  else{
+    const pn=Number(bal.patrimonio_neto), pasivo=Number(bal.pasivo_total), ganancia=Number(bal.ganancia_ejercicio);
+    if(bal.en_concurso_o_quiebra || (!isNaN(pn) && pn<0)){
+      b2=0; b2detalle = bal.en_concurso_o_quiebra ? 'Empresa en concurso preventivo o quiebra.' : 'Patrimonio Neto negativo.';
+      redFlags.push(bal.en_concurso_o_quiebra ? 'Empresa en concurso preventivo o quiebra.' : 'Balance con Patrimonio Neto negativo.');
+    } else {
+      const apalancamiento = pn>0 ? pasivo/pn : Infinity;
+      if(ganancia>0 && apalancamiento<2.0){ b2=25; b2detalle='Rentabilidad positiva, apalancamiento '+apalancamiento.toFixed(2)+'.'; }
+      else if(ganancia>0 && apalancamiento<=4.0){ b2=15; b2detalle='Rentabilidad positiva, apalancamiento '+apalancamiento.toFixed(2)+'.'; }
+      else if(Math.abs(ganancia)<1 || apalancamiento>4.0){ b2=8; b2detalle='Balance en equilibrio o apalancamiento alto ('+apalancamiento.toFixed(2)+').'; }
+      else { b2=0; b2detalle='Pérdida operativa severa.'; redFlags.push('Balance con pérdida operativa severa.'); }
+    }
+  }
+  blocks.push({nombre:'Análisis del balance general', pts:b2, max:25, detalle:b2detalle});
+
+  let b3=0,b3detalle='';
+  const ddjjs=(d.ddjjIva||[]).filter(Boolean).slice().sort((a,b)=>String(a.periodo||'').localeCompare(String(b.periodo||'')));
+  if(ddjjs.length<2){ b3=0; b3detalle='Faltan DDJJ de IVA suficientes para evaluar la tendencia (mínimo 2).'; }
+  else{
+    const first=ddjjs[0].ventas_gravadas||0, last=ddjjs[ddjjs.length-1].ventas_gravadas||0;
+    const variacion = first>0 ? ((last-first)/first*100) : 0;
+    if(variacion>=-10){ b3=20; b3detalle='Facturación constante o con caída menor al 10% ('+variacion.toFixed(1)+'%).'; }
+    else if(variacion>=-30){ b3=12; b3detalle='Facturación con variaciones moderadas ('+variacion.toFixed(1)+'%).'; }
+    else { b3=5; b3detalle='Caída severa en la facturación reciente ('+variacion.toFixed(1)+'%).'; }
+  }
+  blocks.push({nombre:'Ventas y flujo reciente (DDJJ IVA)', pts:b3, max:20, detalle:b3detalle});
+
+  let b4=0,b4detalle='';
+  const canon=Number(d.canonMensualLeasing)||0;
+  const ventasPromedio = ddjjs.length ? ddjjs.reduce((s,x)=>s+(x.ventas_gravadas||0),0)/ddjjs.length : 0;
+  if(!canon || !ventasPromedio){ b4=0; b4detalle='Faltan datos de canon o ventas promedio.'; }
+  else{
+    const ratio=canon/ventasPromedio*100;
+    if(ratio<=10){ b4=15; b4detalle='El canon representa el '+ratio.toFixed(1)+'% de las ventas promedio.'; }
+    else if(ratio<=20){ b4=10; b4detalle='El canon representa el '+ratio.toFixed(1)+'% de las ventas promedio.'; }
+    else { b4=4; b4detalle='El canon representa el '+ratio.toFixed(1)+'% de las ventas promedio.'; }
+  }
+  blocks.push({nombre:'Cobertura de cuota (canon vs. ventas)', pts:b4, max:15, detalle:b4detalle});
+
+  let b5=0,b5detalle='';
+  const cc=d.constanciaCuit;
+  if(!cc){ b5=0; b5detalle='Falta la constancia de CUIT / regularidad societaria.'; }
+  else if(!cc.impuestos_con_deuda_o_incumplimiento && String(cc.estado_clave||'').toLowerCase().includes('activ')){ b5=15; b5detalle='Constancia activa, inscripción al día, sin deudas previsionales/fiscales.'; }
+  else { b5=8; b5detalle='Regularidad formal con observaciones menores.'; }
+  blocks.push({nombre:'Regularidad societaria', pts:b5, max:15, detalle:b5detalle});
+
+  return finalizeRiesgoScore(blocks, redFlags, 'PJ');
+}
+function finalizeRiesgoScore(blocks, redFlags, tipo){
+  const puntaje = blocks.reduce((s,b)=>s+b.pts,0);
+  let semaforo;
+  if(redFlags.length>0) semaforo='ROJO';
+  else if(puntaje>=80) semaforo='VERDE';
+  else if(puntaje>=55) semaforo='AMARILLO';
+  else semaforo='ROJO';
+  const mitigantes=[];
+  if(semaforo==='AMARILLO'){
+    blocks.forEach(b=>{
+      const pct = b.max ? b.pts/b.max : 1;
+      if(pct<0.6){
+        if(/[Cc]apacidad de pago|[Cc]obertura/.test(b.nombre)) mitigantes.push('Pedir incremento del Canon Inicial (down payment) del 10% al 20%.');
+        if(/Veraz/.test(b.nombre)) mitigantes.push('Solicitar fianza personal del socio mayoritario o garante adicional.');
+        if(/[Bb]alance/.test(b.nombre)) mitigantes.push('Solicitar garantías adicionales dado el nivel de apalancamiento.');
+        if(/ingresos|[Rr]espaldo/.test(b.nombre)) mitigantes.push('Solicitar documentación de respaldo adicional de ingresos.');
+        if(/[Rr]egularidad/.test(b.nombre)) mitigantes.push('Solicitar regularización de la situación fiscal/previsional antes de aprobar.');
+      }
+    });
+    if(mitigantes.length===0) mitigantes.push('Evaluar mayor Canon Inicial o garantías adicionales antes de aprobar.');
+  }
+  return {tipo, puntaje, semaforo, blocks, redFlags, mitigantes:Array.from(new Set(mitigantes))};
+}
+function computeRiesgoActual(){
+  return state.riesgoTipoPersona==='PF' ? scorePF(state.riesgoDatos) : scorePJ(state.riesgoDatos);
+}
+
+// ---------- eventos de guardado ----------
+async function handleGuardarEvaluacion(){
+  if(!state.riesgoNombre.trim()){ state.error='Ponele un nombre a la persona o empresa evaluada.'; render(); return; }
+  const resultado = computeRiesgoActual();
+  state.riesgoEvaluacionesLoading = true; render();
+  try{
+    await saveRiesgoEvaluacion({ tipo: state.riesgoTipoPersona, nombre: state.riesgoNombre.trim(), datos: state.riesgoDatos, resultado });
+    state.notice = 'Evaluación guardada: '+state.riesgoNombre+' — '+resultado.semaforo+' ('+resultado.puntaje+' pts).';
+    state.riesgoEvaluacionesLoaded = false;
+    resetRiesgoForm();
+    state.riesgoView='guardadas';
+    await loadRiesgoEvaluaciones();
+  } catch(e){ state.error=(e&&e.message)||'No pude guardar la evaluación.'; }
+  finally{ state.riesgoEvaluacionesLoading=false; render(); }
+}
+function resetRiesgoForm(){
+  state.riesgoNombre=''; state.riesgoDocEstados={}; state.riesgoDocErrores={};
+  state.riesgoDatos={ canonMensualLeasing:'', regimenIngreso:'dependencia', antiguedadAnios:'',
+    veraz:null, balance:null, ddjjIva:[null,null,null], reciboSueldo:null, monotributo:null,
+    ddjjGanancias:null, constanciaCuit:null };
+  riesgoPendingFiles = {};
+}
+
+// ---------- vista: Transcol / Matriz de Evaluación de Riesgo ----------
+function buildTranscol(){
+  let html = '<div style="max-width:1000px;margin:0 auto;">';
+  if(state.error) html += '<div class="banner error">⚠ '+esc(state.error)+'</div>';
+  if(state.notice) html += '<div class="banner notice">✓ '+esc(state.notice)+'</div>';
+  html += state.riesgoView==='nueva' ? buildRiesgoNueva() : buildRiesgoGuardadas();
+  html += '</div></main>';
+  return html;
+}
+
+function docsParaTipo(tipo){
+  if(tipo==='PF') return [
+    {clave:'constanciaCuit', label:'CUIT / CUIL (Constancia AFIP/ARCA)'},
+    {clave:'reciboSueldo', label:'Últimos recibos de sueldo (si es empleado en relación de dependencia)'},
+    {clave:'ddjjGanancias', label:'DDJJ Ganancias/Bienes Personales (si es autónomo)'},
+    {clave:'monotributo', label:'Últimos pagos de Monotributo (si es monotributista)'},
+    {clave:'veraz', label:'Informe Veraz / Nosis actualizado'},
+  ];
+  return [
+    {clave:'constanciaCuit', label:'Constancia de CUIT / Regularidad Societaria'},
+    {clave:'balance', label:'Último Balance General auditado'},
+    {clave:'ddjjIva0', label:'DDJJ de IVA — mes 1 (el más antiguo)'},
+    {clave:'ddjjIva1', label:'DDJJ de IVA — mes 2'},
+    {clave:'ddjjIva2', label:'DDJJ de IVA — mes 3 (el más reciente)'},
+    {clave:'veraz', label:'Informe Veraz / Nosis (empresa + firmantes)'},
+  ];
+}
+
+function buildRiesgoNueva(){
+  const docs = docsParaTipo(state.riesgoTipoPersona);
+  const resultado = computeRiesgoActual();
+
+  let html = '<h2 class="section-title">Nueva evaluación de riesgo</h2>'+
+    '<p class="section-sub">Subí los documentos del legajo; la IA los lee automáticamente y el puntaje se recalcula solo.</p>';
+
+  html += '<div class="card pad" style="margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap;align-items:center;">'+
+    '<div style="display:flex;gap:8px;">'+
+      '<button class="btn '+(state.riesgoTipoPersona==='PF'?'btn-primary':'')+'" style="'+(state.riesgoTipoPersona==='PF'?'width:auto;padding:9px 14px;':'')+'" data-action="riesgo-tipo" data-tipo="PF">Persona Física</button>'+
+      '<button class="btn '+(state.riesgoTipoPersona==='PJ'?'btn-primary':'')+'" style="'+(state.riesgoTipoPersona==='PJ'?'width:auto;padding:9px 14px;':'')+'" data-action="riesgo-tipo" data-tipo="PJ">Persona Jurídica</button>'+
+    '</div>'+
+    '<input id="riesgo-nombre" placeholder="Nombre / Razón social a evaluar" value="'+esc(state.riesgoNombre)+'" style="flex:1;min-width:220px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;" />'+
+  '</div>';
+
+  // checklist documental interactivo
+  html += '<div class="card pad" style="margin-bottom:16px;">'+
+    '<div class="stat-label" style="margin-bottom:10px;">Legajo crediticio</div>';
+  docs.forEach(doc=>{
+    const estado = state.riesgoDocEstados[doc.clave] || 'pendiente';
+    const err = state.riesgoDocErrores[doc.clave];
+    const pendingFile = riesgoPendingFiles[doc.clave];
+    let valorExtraido = doc.clave.startsWith('ddjjIva') ? state.riesgoDatos.ddjjIva[Number(doc.clave.replace('ddjjIva',''))] : state.riesgoDatos[doc.clave];
+    html += '<div class="doc-row">'+
+      '<span class="doc-label">'+esc(doc.label)+'</span>'+
+      '<input type="file" accept=".pdf" data-doc="'+doc.clave+'" class="riesgo-doc-file" style="font-size:11px;max-width:150px;" />'+
+      '<span class="doc-filename" style="font-size:11px;color:var(--muted);">'+(pendingFile && estado!=='leido' ? '📎 '+esc(pendingFile.name) : '')+'</span>'+
+      '<button class="btn" style="padding:6px 10px;font-size:12px;" data-action="riesgo-analizar" data-doc="'+doc.clave+'" '+(estado==='leyendo'?'disabled':'')+'>'+(estado==='leyendo'?'⟳ Leyendo...':'🤖 Analizar con IA')+'</button>'+
+      '<span class="doc-status '+estado+'">'+({pendiente:'Pendiente',leyendo:'Leyendo...',leido:'✓ Leído',error:'⚠ Error'})[estado]+'</span>'+
+      (err ? '<div style="width:100%;font-size:11.5px;color:#991b1b;">'+esc(err)+'</div>' : '')+
+      (estado==='leido' && valorExtraido ? '<div style="width:100%;font-size:11.5px;color:#166534;background:#f0fdf4;padding:6px 8px;border-radius:6px;">'+esc(JSON.stringify(valorExtraido))+'</div>' : '')+
+    '</div>';
+  });
+  html += '</div>';
+
+  // datos manuales
+  html += '<div class="card pad" style="margin-bottom:16px;">'+
+    '<div class="stat-label" style="margin-bottom:10px;">Datos de la operación</div>'+
+    '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">'+
+      '<label style="font-size:13px;">Canon Mensual del Leasing ($)<br/>'+
+        '<input type="number" id="riesgo-canon" value="'+esc(state.riesgoDatos.canonMensualLeasing)+'" style="width:160px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;margin-top:4px;" /></label>';
+  if(state.riesgoTipoPersona==='PF'){
+    html += '<label style="font-size:13px;">Régimen de ingresos<br/>'+
+      '<select id="riesgo-regimen" style="margin-top:4px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;">'+
+        '<option value="dependencia" '+(state.riesgoDatos.regimenIngreso==='dependencia'?'selected':'')+'>Relación de dependencia</option>'+
+        '<option value="autonomo" '+(state.riesgoDatos.regimenIngreso==='autonomo'?'selected':'')+'>Autónomo / Monotributista</option>'+
+      '</select></label>';
+    if(state.riesgoDatos.regimenIngreso==='dependencia'){
+      html += '<label style="font-size:13px;">Antigüedad laboral (años)<br/>'+
+        '<input type="number" step="0.1" id="riesgo-antiguedad" value="'+esc(state.riesgoDatos.antiguedadAnios)+'" style="width:120px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;margin-top:4px;" /></label>';
+    }
+  }
+  html += '</div></div>';
+
+  html += buildDashboardRiesgo(resultado);
+
+  html += '<div style="display:flex;gap:10px;margin-top:6px;">'+
+    '<button class="btn btn-primary" style="width:auto;padding:11px 18px;" data-action="riesgo-guardar" '+(state.riesgoEvaluacionesLoading?'disabled':'')+'>💾 Guardar evaluación</button>'+
+    '<button class="btn" data-action="riesgo-cancelar">🗑 Limpiar formulario</button>'+
+  '</div>';
+
+  return html;
+}
+
+function buildDashboardRiesgo(resultado){
+  let html = '<div class="card pad" style="margin-bottom:16px;">'+
+    '<div class="stat-label" style="margin-bottom:12px;">Resultado</div>'+
+    '<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:14px;">'+
+      '<span class="semaforo-badge '+resultado.semaforo+'">'+
+        (resultado.semaforo==='VERDE'?'🟢 VERDE — APTO DIRECTO':resultado.semaforo==='AMARILLO'?'🟡 AMARILLO — APTO CON PRECAUCIONES':'🔴 ROJO — INCOMPATIBLE')+
+      '</span>'+
+      '<div style="flex:1;min-width:200px;">'+
+        '<div class="score-bar-track"><div class="score-bar-fill '+resultado.semaforo+'" style="width:'+resultado.puntaje+'%;"></div></div>'+
+        '<div class="font-num" style="font-size:13px;margin-top:4px;">'+resultado.puntaje.toFixed(0)+' / 100 puntos</div>'+
+      '</div>'+
+    '</div>';
+
+  if(resultado.redFlags.length){
+    html += '<div class="banner error"><b>Banderas rojas:</b><ul style="margin:4px 0 0 18px;padding:0;">'+
+      resultado.redFlags.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul></div>';
+  }
+
+  html += '<div class="stat-label" style="margin:12px 0 8px;">Detalle por bloque</div>';
+  resultado.blocks.forEach(b=>{
+    html += '<div class="bloque-card"><div class="bloque-head"><span>'+esc(b.nombre)+'</span><span class="font-num">'+b.pts+' / '+b.max+'</span></div>'+
+      '<div class="bloque-detalle">'+esc(b.detalle)+'</div></div>';
+  });
+
+  if(resultado.semaforo==='AMARILLO' && resultado.mitigantes.length){
+    html += '<div class="stat-label" style="margin:12px 0 8px;">Mitigantes sugeridos</div>'+
+      '<div class="card pad" style="background:#fffbeb;border-color:#fde68a;">'+
+      '<ul style="margin:0 0 0 18px;padding:0;font-size:13px;">'+resultado.mitigantes.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul>'+
+      '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function buildRiesgoGuardadas(){
+  let html = '<h2 class="section-title">Evaluaciones guardadas</h2>'+
+    '<p class="section-sub">Historial de legajos evaluados.</p>';
+  if(state.riesgoEvaluacionesLoading){ html += '<div class="empty"><span class="spin">⟳</span> Cargando...</div>'; return html; }
+  if(state.riesgoEvaluaciones.length===0){ html += '<div class="muted-italic">Todavía no guardaste ninguna evaluación.</div>'; return html; }
+
+  html += '<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Nombre</th><th>Tipo</th><th class="r">Puntaje</th><th>Resultado</th></tr></thead><tbody>';
+  state.riesgoEvaluaciones.forEach(ev=>{
+    const sem = ev.semaforo || 'ROJO';
+    html += '<tr><td class="font-num">'+esc(shortDate(ev.created_at))+'</td><td>'+esc(ev.nombre)+'</td><td>'+esc(ev.tipo_persona)+'</td>'+
+      '<td class="r font-num">'+(ev.puntaje_total==null?'—':Number(ev.puntaje_total).toFixed(0))+'</td>'+
+      '<td><span class="semaforo-badge '+sem+'" style="padding:3px 10px;font-size:11.5px;">'+sem+'</span></td></tr>';
+  });
+  html += '</tbody></table></div>';
+  return html;
+}
+
+
 // ---------- asistente: panel de chat (independiente del resto de la app) ----------
 const chatRootEl = document.getElementById('chat-root');
 let speechRecognizer = null;
@@ -1892,6 +2344,7 @@ function toggleChatMic(){
   try{ speechRecognizer.start(); }catch(e){ state.chatListening=false; renderChat(); }
 }
 
+// ---------- events ----------
 function attachEvents(){
   document.body.addEventListener('click', onRootClick);
   document.body.addEventListener('input', onRootInput);
@@ -1960,7 +2413,22 @@ function onRootClick(e){
   } else if(action==='download-dashboard-excel'){ exportDashboardExcel();
   } else if(action==='download-general-excel'){ exportGeneralExcel();
   } else if(action==='presupuesto-save'){ handleSavePresupuesto();
-  } else if(action==='presupuesto-download'){ exportPresupuestoExcel(); }
+  } else if(action==='presupuesto-download'){ exportPresupuestoExcel();
+  } else if(action==='switch-empresa'){
+    state.empresaActiva = btn.dataset.empresa; state.error=''; state.notice='';
+    if(state.empresaActiva==='TRANSCOL' && !state.riesgoEvaluacionesLoaded){ loadRiesgoEvaluaciones(); } else { render(); }
+  } else if(action==='goto-riesgo'){
+    state.riesgoView = btn.dataset.riesgoview; state.error=''; state.notice='';
+    if(state.riesgoView==='guardadas' && !state.riesgoEvaluacionesLoaded){ loadRiesgoEvaluaciones(); } else { render(); }
+  } else if(action==='riesgo-tipo'){ state.riesgoTipoPersona = btn.dataset.tipo; render();
+  } else if(action==='riesgo-analizar'){
+    const doc = btn.dataset.doc;
+    const file = riesgoPendingFiles[doc];
+    if(!file){ state.error='Elegí primero el archivo PDF de "'+ (RIESGO_DOC_LABELS[doc]||doc) +'".'; render(); return; }
+    state.error='';
+    analizarDocumentoIA(doc, file);
+  } else if(action==='riesgo-guardar'){ handleGuardarEvaluacion();
+  } else if(action==='riesgo-cancelar'){ resetRiesgoForm(); state.error=''; state.notice=''; render(); }
 }
 function onRootInput(e){
   if(e.target.id==='search-input'){ state.search = e.target.value; refreshDashboardList(); }
@@ -1979,6 +2447,14 @@ function onRootInput(e){
     state.presupuestoDirtyMonths.add(mes);
     updatePresupuestoSaveButton();
   }
+  else if(e.target.classList.contains('riesgo-doc-file')){
+    riesgoPendingFiles[e.target.dataset.doc] = e.target.files[0] || null;
+    // solo actualizamos el nombre mostrado, sin re-renderizar todo (así no
+    // se resetea ningún otro campo mientras el usuario sigue completando el formulario)
+    const label = e.target.parentElement ? e.target.parentElement.querySelector('.doc-filename') : null;
+    if(label) label.textContent = e.target.files[0] ? ('📎 '+e.target.files[0].name) : '';
+  }
+  else if(e.target.id==='riesgo-nombre'){ state.riesgoNombre = e.target.value; }
 }
 function updatePresupuestoSaveButton(){
   const btn = document.querySelector('[data-action="presupuesto-save"]');
@@ -2001,6 +2477,9 @@ function onRootChange(e){
     toggleSetItem(state.presupuestoVisibleConcepts, e.target.value);
     drawPresupuestoChart();
   }
+  else if(e.target.id==='riesgo-regimen'){ state.riesgoDatos.regimenIngreso = e.target.value; render(); }
+  else if(e.target.id==='riesgo-canon'){ state.riesgoDatos.canonMensualLeasing = e.target.value; render(); }
+  else if(e.target.id==='riesgo-antiguedad'){ state.riesgoDatos.antiguedadAnios = e.target.value; render(); }
 }
 // aplica el cambio de filtro a la pestaña que esté abierta en ese momento;
 // mora general y por cliente ya tienen los datos descargados, así que
