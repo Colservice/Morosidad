@@ -15,6 +15,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.8/dist/jspdf.plugin.autotable.min.js"></script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -440,7 +442,7 @@ const state = {
   riesgoEvaluaciones:[], riesgoEvaluacionesLoaded:false, riesgoEvaluacionesLoading:false,
   riesgoTipoPersona:'PJ', // 'PF' | 'PJ'
   riesgoNombre:'',
-  riesgoDatos:{ canonMensualLeasing:'', regimenIngreso:'dependencia', antiguedadAnios:'',
+  riesgoDatos:{ canones:[{descripcion:'',monto:''}], regimenIngreso:'dependencia', antiguedadAnios:'',
     veraz:null, balance:null, ddjjIva:[null,null,null], reciboSueldo:null, monotributo:null,
     ddjjGanancias:null, constanciaCuit:null },
   riesgoDocEstados:{}, // clave doc -> 'pendiente'|'leyendo'|'leido'|'error'
@@ -1899,7 +1901,26 @@ async function analizarDocumentoIA(claveDoc, file){
     if(!data || data.error) throw new Error((data && data.error) || 'La IA no pudo leer el documento.');
     if(claveDoc.startsWith('ddjjIva')){
       const idx = Number(claveDoc.replace('ddjjIva',''));
-      state.riesgoDatos.ddjjIva[idx] = data.data;
+      const periodos = Array.isArray(data.data && data.data.periodos) ? data.data.periodos.filter(p=>p && p.periodo && p.ventas_gravadas!=null) : [];
+      if(periodos.length>=2){
+        // el documento trae varios meses juntos (ej. un reporte de ventas anual):
+        // completamos los 3 casilleros solos con los últimos 3 períodos distintos
+        const ordenados = periodos.slice().sort((a,b)=>String(a.periodo).localeCompare(String(b.periodo)));
+        const ultimos3 = ordenados.slice(-3);
+        state.riesgoDatos.ddjjIva = [ultimos3[0]||null, ultimos3[1]||null, ultimos3[2]||null];
+        ['ddjjIva0','ddjjIva1','ddjjIva2'].forEach((k,i)=>{
+          state.riesgoDocEstados[k] = ultimos3[i] ? 'leido' : (state.riesgoDocEstados[k]||'pendiente');
+        });
+        state.notice = 'Encontré '+periodos.length+' mes(es) en ese documento y completé los 3 casilleros de DDJJ IVA automáticamente.';
+      } else if(periodos.length===1){
+        state.riesgoDatos.ddjjIva[idx] = periodos[0];
+      } else {
+        state.riesgoDatos.ddjjIva[idx] = null;
+        state.riesgoDocEstados[claveDoc] = 'error';
+        state.riesgoDocErrores[claveDoc] = 'No pude encontrar ningún período/ventas en ese documento.';
+        render();
+        return;
+      }
     } else {
       state.riesgoDatos[claveDoc] = data.data;
     }
@@ -1930,7 +1951,7 @@ function scorePF(d){
   blocks.push({nombre:'Informe Veraz/Nosis', pts:b1, max:35, detalle:b1detalle});
 
   let b2=0,b2detalle='';
-  const canon=Number(d.canonMensualLeasing)||0;
+  const canon=sumCanones(d);
   let ingresoMensual=null;
   if(d.reciboSueldo && d.reciboSueldo.sueldo_neto) ingresoMensual=Number(d.reciboSueldo.sueldo_neto);
   else if(d.ddjjGanancias && d.ddjjGanancias.ingresos_declarados) ingresoMensual=Number(d.ddjjGanancias.ingresos_declarados)/12;
@@ -2018,7 +2039,7 @@ function scorePJ(d){
   blocks.push({nombre:'Ventas y flujo reciente (DDJJ IVA)', pts:b3, max:20, detalle:b3detalle});
 
   let b4=0,b4detalle='';
-  const canon=Number(d.canonMensualLeasing)||0;
+  const canon=sumCanones(d);
   const ventasPromedio = ddjjs.length ? ddjjs.reduce((s,x)=>s+(x.ventas_gravadas||0),0)/ddjjs.length : 0;
   if(!canon || !ventasPromedio){ b4=0; b4detalle='Faltan datos de canon o ventas promedio.'; }
   else{
@@ -2082,10 +2103,18 @@ async function handleGuardarEvaluacion(){
 }
 function resetRiesgoForm(){
   state.riesgoNombre=''; state.riesgoDocEstados={}; state.riesgoDocErrores={};
-  state.riesgoDatos={ canonMensualLeasing:'', regimenIngreso:'dependencia', antiguedadAnios:'',
+  state.riesgoDatos={ canones:[{descripcion:'',monto:''}], regimenIngreso:'dependencia', antiguedadAnios:'',
     veraz:null, balance:null, ddjjIva:[null,null,null], reciboSueldo:null, monotributo:null,
     ddjjGanancias:null, constanciaCuit:null };
   riesgoPendingFiles = {};
+}
+// suma todos los cánones cargados (para operaciones con varias unidades/leasings
+// juntos); si una evaluación vieja solo tenía el campo único, lo sigue leyendo igual
+function sumCanones(d){
+  if(Array.isArray(d.canones) && d.canones.length){
+    return d.canones.reduce((s,c)=> s + (Number(c.monto)||0), 0);
+  }
+  return Number(d.canonMensualLeasing)||0;
 }
 
 // ---------- vista: Transcol / Matriz de Evaluación de Riesgo ----------
@@ -2109,7 +2138,7 @@ function docsParaTipo(tipo){
   return [
     {clave:'constanciaCuit', label:'Constancia de CUIT / Regularidad Societaria'},
     {clave:'balance', label:'Último Balance General auditado'},
-    {clave:'ddjjIva0', label:'DDJJ de IVA — mes 1 (el más antiguo)'},
+    {clave:'ddjjIva0', label:'DDJJ de IVA o reporte de ventas (podés subir 1 archivo con varios meses acá)'},
     {clave:'ddjjIva1', label:'DDJJ de IVA — mes 2'},
     {clave:'ddjjIva2', label:'DDJJ de IVA — mes 3 (el más reciente)'},
     {clave:'veraz', label:'Informe Veraz / Nosis (empresa + firmantes)'},
@@ -2153,10 +2182,22 @@ function buildRiesgoNueva(){
 
   // datos manuales
   html += '<div class="card pad" style="margin-bottom:16px;">'+
-    '<div class="stat-label" style="margin-bottom:10px;">Datos de la operación</div>'+
-    '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">'+
-      '<label style="font-size:13px;">Canon Mensual del Leasing ($)<br/>'+
-        '<input type="number" id="riesgo-canon" value="'+esc(state.riesgoDatos.canonMensualLeasing)+'" style="width:160px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;margin-top:4px;" /></label>';
+    '<div class="stat-label" style="margin-bottom:4px;">Canon Mensual del Leasing ($)</div>'+
+    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 10px;">Si el cliente toma varias unidades en la misma operación, agregá una línea por cada una — el sistema evalúa el total combinado.</p>';
+  state.riesgoDatos.canones.forEach((c,i)=>{
+    html += '<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">'+
+      '<input placeholder="Descripción (opcional, ej: Unidad 1)" data-idx="'+i+'" class="riesgo-canon-desc" value="'+esc(c.descripcion)+'" style="flex:1;max-width:260px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;" />'+
+      '<input type="number" placeholder="Monto" data-idx="'+i+'" class="riesgo-canon-monto" value="'+esc(c.monto)+'" style="width:150px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;" />'+
+      (state.riesgoDatos.canones.length>1 ? '<button class="btn" style="padding:6px 10px;font-size:12px;" data-action="riesgo-canon-quitar" data-idx="'+i+'">✕</button>' : '')+
+    '</div>';
+  });
+  html += '<button class="btn" style="margin-top:2px;" data-action="riesgo-canon-agregar">+ Agregar otro canon</button>'+
+    '<div style="font-size:12.5px;color:var(--muted);margin-top:8px;">Total combinado: <b class="font-num" style="color:var(--text);">'+esc(money(sumCanones(state.riesgoDatos)))+'</b></div>';
+  html += '</div>';
+
+  html += '<div class="card pad" style="margin-bottom:16px;">'+
+    '<div class="stat-label" style="margin-bottom:10px;">Otros datos</div>'+
+    '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">';
   if(state.riesgoTipoPersona==='PF'){
     html += '<label style="font-size:13px;">Régimen de ingresos<br/>'+
       '<select id="riesgo-regimen" style="margin-top:4px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;">'+
@@ -2167,13 +2208,16 @@ function buildRiesgoNueva(){
       html += '<label style="font-size:13px;">Antigüedad laboral (años)<br/>'+
         '<input type="number" step="0.1" id="riesgo-antiguedad" value="'+esc(state.riesgoDatos.antiguedadAnios)+'" style="width:120px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;margin-top:4px;" /></label>';
     }
+  } else {
+    html += '<span style="font-size:12.5px;color:var(--muted);">(sin campos adicionales para Persona Jurídica por ahora)</span>';
   }
   html += '</div></div>';
 
   html += buildDashboardRiesgo(resultado);
 
-  html += '<div style="display:flex;gap:10px;margin-top:6px;">'+
+  html += '<div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">'+
     '<button class="btn btn-primary" style="width:auto;padding:11px 18px;" data-action="riesgo-guardar" '+(state.riesgoEvaluacionesLoading?'disabled':'')+'>💾 Guardar evaluación</button>'+
+    '<button class="btn" data-action="riesgo-pdf">📄 Exportar informe a PDF</button>'+
     '<button class="btn" data-action="riesgo-cancelar">🗑 Limpiar formulario</button>'+
   '</div>';
 
@@ -2215,18 +2259,140 @@ function buildDashboardRiesgo(resultado){
   return html;
 }
 
+// recalcula el resultado completo de una evaluación guardada a partir de los
+// datos originales (así no hace falta guardar el detalle por bloque aparte:
+// siempre se recalcula igual, en vivo)
+function resultadoDeRegistro(ev){
+  return ev.tipo_persona==='PF' ? scorePF(ev.datos||{}) : scorePJ(ev.datos||{});
+}
+
+// arma un gráfico de barras (puntaje obtenido vs. máximo posible por bloque)
+// como imagen, para insertarlo en el PDF
+function buildScoreChartImage(resultado){
+  return new Promise((resolve)=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = 900; canvas.height = 380;
+    const labels = resultado.blocks.map(b=> b.nombre.length>32 ? b.nombre.slice(0,30)+'…' : b.nombre);
+    const maxEje = Math.max(...resultado.blocks.map(b=>b.max)) + 5;
+    const chart = new Chart(canvas, {
+      type:'bar',
+      data:{ labels, datasets:[
+        {label:'Puntaje obtenido', data:resultado.blocks.map(b=>b.pts), backgroundColor:'#0A70A1'},
+        {label:'Máximo posible', data:resultado.blocks.map(b=>b.max), backgroundColor:'#cbd5e1'},
+      ]},
+      options:{
+        indexAxis:'y', responsive:false, animation:false,
+        plugins:{legend:{position:'bottom', labels:{font:{size:13}}}},
+        scales:{ x:{beginAtZero:true, max:maxEje, ticks:{font:{size:12}}}, y:{ticks:{font:{size:12}}} }
+      }
+    });
+    setTimeout(()=>{
+      let img = null;
+      try{ img = canvas.toDataURL('image/png'); }catch(e){}
+      chart.destroy();
+      resolve(img);
+    }, 200);
+  });
+}
+
+async function exportEvaluacionPDF(nombre, tipoPersona, resultado){
+  if(!window.jspdf || !window.autoTable){ state.error='La librería de PDF todavía no cargó, esperá un segundo y volvé a intentar.'; render(); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let y = 0;
+
+  doc.setFillColor(6,48,74);
+  doc.rect(0,0,pageWidth,70,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18); doc.setFont(undefined,'bold');
+  doc.text('TRANSCOL S.A.', 40, 30);
+  doc.setFontSize(11); doc.setFont(undefined,'normal');
+  doc.text('Informe de Evaluación de Riesgo Crediticio', 40, 48);
+  y = 95;
+
+  doc.setTextColor(15,23,42);
+  doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text(String(nombre), 40, y);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text('Tipo: '+(tipoPersona==='PF'?'Persona Física':'Persona Jurídica')+'   ·   Fecha: '+new Date().toLocaleDateString('es-AR'), 40, y+16);
+  y += 40;
+
+  const colores = {VERDE:[34,197,94], AMARILLO:[234,179,8], ROJO:[239,68,68]};
+  const c = colores[resultado.semaforo] || colores.ROJO;
+  doc.setFillColor(c[0],c[1],c[2]);
+  doc.roundedRect(40, y, 260, 34, 6, 6, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(12); doc.setFont(undefined,'bold');
+  const etiqueta = resultado.semaforo==='VERDE' ? 'VERDE — APTO DIRECTO' : resultado.semaforo==='AMARILLO' ? 'AMARILLO — APTO CON PRECAUCIONES' : 'ROJO — INCOMPATIBLE';
+  doc.text(etiqueta, 50, y+22);
+  doc.setTextColor(15,23,42); doc.setFontSize(20); doc.setFont(undefined,'bold');
+  doc.text(resultado.puntaje.toFixed(0)+' / 100', 320, y+24);
+  y += 55;
+
+  try{
+    const img = await buildScoreChartImage(resultado);
+    if(img){ doc.addImage(img, 'PNG', 40, y, 515, 217); y += 232; }
+  } catch(e){ /* si falla el gráfico, seguimos sin él */ }
+
+  window.autoTable(doc, {
+    startY: y,
+    head: [['Bloque','Puntaje','Detalle']],
+    body: resultado.blocks.map(b=>[b.nombre, b.pts+' / '+b.max, b.detalle]),
+    styles:{fontSize:9, cellPadding:5},
+    headStyles:{fillColor:[10,112,161], textColor:255},
+    columnStyles:{0:{cellWidth:140}, 1:{cellWidth:55}, 2:{cellWidth:'auto'}},
+    margin:{left:40, right:40},
+  });
+  y = doc.lastAutoTable.finalY + 20;
+
+  function chequearSalto(altoNecesario){
+    if(y + altoNecesario > 780){ doc.addPage(); y = 40; }
+  }
+
+  if(resultado.redFlags.length){
+    const alto = 22 + resultado.redFlags.length*14;
+    chequearSalto(alto+15);
+    doc.setFillColor(254,226,226);
+    doc.roundedRect(40, y, 515, alto, 4, 4, 'F');
+    doc.setTextColor(153,27,27); doc.setFontSize(10); doc.setFont(undefined,'bold');
+    doc.text('Banderas rojas', 50, y+16);
+    doc.setFont(undefined,'normal'); doc.setFontSize(9);
+    resultado.redFlags.forEach((f,i)=> doc.text('• '+String(f), 50, y+16+(i+1)*14, {maxWidth:495}));
+    y += alto + 15;
+  }
+
+  if(resultado.semaforo==='AMARILLO' && resultado.mitigantes.length){
+    const alto = 22 + resultado.mitigantes.length*14;
+    chequearSalto(alto+15);
+    doc.setFillColor(255,251,235);
+    doc.roundedRect(40, y, 515, alto, 4, 4, 'F');
+    doc.setTextColor(133,77,14); doc.setFontSize(10); doc.setFont(undefined,'bold');
+    doc.text('Mitigantes sugeridos', 50, y+16);
+    doc.setFont(undefined,'normal'); doc.setFontSize(9);
+    resultado.mitigantes.forEach((m,i)=> doc.text('• '+String(m), 50, y+16+(i+1)*14, {maxWidth:495}));
+    y += alto + 15;
+  }
+
+  doc.setFontSize(8); doc.setTextColor(148,163,184);
+  doc.text('Generado automáticamente por el sistema de evaluación de riesgo de Transcol S.A. — '+new Date().toLocaleString('es-AR'), 40, 820);
+
+  const nombreArchivo = 'Legajo_'+String(nombre).replace(/[^A-Za-z0-9]+/g,'_').slice(0,60)+'.pdf';
+  doc.save(nombreArchivo);
+}
+
 function buildRiesgoGuardadas(){
   let html = '<h2 class="section-title">Evaluaciones guardadas</h2>'+
     '<p class="section-sub">Historial de legajos evaluados.</p>';
   if(state.riesgoEvaluacionesLoading){ html += '<div class="empty"><span class="spin">⟳</span> Cargando...</div>'; return html; }
   if(state.riesgoEvaluaciones.length===0){ html += '<div class="muted-italic">Todavía no guardaste ninguna evaluación.</div>'; return html; }
 
-  html += '<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Nombre</th><th>Tipo</th><th class="r">Puntaje</th><th>Resultado</th></tr></thead><tbody>';
-  state.riesgoEvaluaciones.forEach(ev=>{
+  html += '<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Nombre</th><th>Tipo</th><th class="r">Puntaje</th><th>Resultado</th><th></th></tr></thead><tbody>';
+  state.riesgoEvaluaciones.forEach((ev,idx)=>{
     const sem = ev.semaforo || 'ROJO';
     html += '<tr><td class="font-num">'+esc(shortDate(ev.created_at))+'</td><td>'+esc(ev.nombre)+'</td><td>'+esc(ev.tipo_persona)+'</td>'+
       '<td class="r font-num">'+(ev.puntaje_total==null?'—':Number(ev.puntaje_total).toFixed(0))+'</td>'+
-      '<td><span class="semaforo-badge '+sem+'" style="padding:3px 10px;font-size:11.5px;">'+sem+'</span></td></tr>';
+      '<td><span class="semaforo-badge '+sem+'" style="padding:3px 10px;font-size:11.5px;">'+sem+'</span></td>'+
+      '<td><button class="btn" style="padding:5px 10px;font-size:12px;" data-action="riesgo-pdf-guardado" data-idx="'+idx+'">📄 PDF</button></td></tr>';
   });
   html += '</tbody></table></div>';
   return html;
@@ -2428,7 +2594,20 @@ function onRootClick(e){
     state.error='';
     analizarDocumentoIA(doc, file);
   } else if(action==='riesgo-guardar'){ handleGuardarEvaluacion();
-  } else if(action==='riesgo-cancelar'){ resetRiesgoForm(); state.error=''; state.notice=''; render(); }
+  } else if(action==='riesgo-cancelar'){ resetRiesgoForm(); state.error=''; state.notice=''; render();
+  } else if(action==='riesgo-canon-agregar'){ state.riesgoDatos.canones.push({descripcion:'',monto:''}); render();
+  } else if(action==='riesgo-canon-quitar'){
+    const i = Number(btn.dataset.idx);
+    state.riesgoDatos.canones.splice(i,1);
+    if(state.riesgoDatos.canones.length===0) state.riesgoDatos.canones.push({descripcion:'',monto:''});
+    render();
+  } else if(action==='riesgo-pdf'){
+    exportEvaluacionPDF(state.riesgoNombre||'Sin nombre', state.riesgoTipoPersona, computeRiesgoActual());
+  } else if(action==='riesgo-pdf-guardado'){
+    const idx = Number(btn.dataset.idx);
+    const ev = state.riesgoEvaluaciones[idx];
+    if(ev) exportEvaluacionPDF(ev.nombre, ev.tipo_persona, resultadoDeRegistro(ev));
+  }
 }
 function onRootInput(e){
   if(e.target.id==='search-input'){ state.search = e.target.value; refreshDashboardList(); }
@@ -2478,8 +2657,13 @@ function onRootChange(e){
     drawPresupuestoChart();
   }
   else if(e.target.id==='riesgo-regimen'){ state.riesgoDatos.regimenIngreso = e.target.value; render(); }
-  else if(e.target.id==='riesgo-canon'){ state.riesgoDatos.canonMensualLeasing = e.target.value; render(); }
   else if(e.target.id==='riesgo-antiguedad'){ state.riesgoDatos.antiguedadAnios = e.target.value; render(); }
+  else if(e.target.classList.contains('riesgo-canon-desc')){
+    const i = Number(e.target.dataset.idx); if(state.riesgoDatos.canones[i]) state.riesgoDatos.canones[i].descripcion = e.target.value; render();
+  }
+  else if(e.target.classList.contains('riesgo-canon-monto')){
+    const i = Number(e.target.dataset.idx); if(state.riesgoDatos.canones[i]) state.riesgoDatos.canones[i].monto = e.target.value; render();
+  }
 }
 // aplica el cambio de filtro a la pestaña que esté abierta en ese momento;
 // mora general y por cliente ya tienen los datos descargados, así que
