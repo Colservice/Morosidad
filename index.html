@@ -436,6 +436,7 @@ const state = {
   informeGerencia:'', informeLoaded:false,
   chatOpen:false, chatMessages:[], chatVoiceOn:true, chatListening:false, chatLastClientKey:null,
   minCuotasAdeudadas:'',
+  moraSeriesVisible:{impago:true, precancelable:true}, // qué líneas se ven en el gráfico de Mora general
   presupuestoData:new Map(), presupuestoLoaded:false, presupuestoLoading:false,
   presupuestoDirtyMonths:new Set(),
   presupuestoVisibleConcepts:new Set(['facturacionCuota','facturacionGastosAdmin','presupuestoGastosAdmin','cobranzaBancaria','gastosAdminCobrados']),
@@ -447,7 +448,7 @@ const state = {
   riesgoNombre:'',
   riesgoDatos:{ canones:[{descripcion:'',monto:''}], regimenIngreso:'dependencia', antiguedadAnios:'',
     veraz:null, balance:null, ddjjIva:[null,null,null], reciboSueldo:null, monotributo:null,
-    ddjjGanancias:null, constanciaCuit:null },
+    ddjjGanancias:null, constanciaCuit:null, cac:false },
   riesgoDocEstados:{}, // clave doc -> 'pendiente'|'leyendo'|'leido'|'error'
   riesgoDocErrores:{},
   riesgoVerDetalle:null, // id de evaluación guardada a mostrar en detalle
@@ -1348,6 +1349,14 @@ function buildMoraGeneral(){
     statCard('Clientes en mora (última foto)', last.clientesEnMora, 'slate')+
     statCard('Contratos activos (última foto)', last.contratos, 'slate')+
   '</div>';
+  html += '<div class="card pad" style="margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'+
+    '<span class="stat-label">Mostrar en el gráfico</span>'+
+    '<div class="check-list" style="max-width:none;">'+
+      '<label class="check-pill"><input type="checkbox" class="mora-serie-check" data-serie="impago" '+(state.moraSeriesVisible.impago?'checked':'')+' /> <span style="color:#e11d48;">●</span> Deuda vencida total</label>'+
+      '<label class="check-pill"><input type="checkbox" class="mora-serie-check" data-serie="precancelable" '+(state.moraSeriesVisible.precancelable?'checked':'')+' /> <span style="color:#0d9488;">●</span> Deuda a vencer</label>'+
+    '</div>'+
+    '<span style="font-size:11.5px;color:var(--muted);">Si una distorsiona a la otra, destildá la que no quieras ver y el gráfico se reescala solo.</span>'+
+  '</div>';
   html += '<div class="chart-box"><canvas id="general-chart"></canvas></div>';
   html += '<div class="table-wrap"><table><thead><tr><th>Fecha de corte</th><th class="r">Clientes en mora</th><th class="r">Contratos</th>'+
     '<th class="r">Deuda vencida total</th><th class="r">A vencer total</th><th class="r">Variación</th></tr></thead><tbody>';
@@ -1371,9 +1380,9 @@ function drawGeneralChart(){
     type:'line',
     data:{ labels: history.map(h=>shortDate(h.date)),
       datasets:[
-        {label:'Deuda vencida total', data:history.map(h=>h.impago), borderColor:'#e11d48', backgroundColor:'#e11d48', tension:.25},
-        {label:'A vencer total', data:history.map(h=>h.precancelable), borderColor:'#0d9488', backgroundColor:'#0d9488', tension:.25}
-      ]},
+        state.moraSeriesVisible.impago ? {label:'Deuda vencida total', data:history.map(h=>h.impago), borderColor:'#e11d48', backgroundColor:'#e11d48', tension:.25} : null,
+        state.moraSeriesVisible.precancelable ? {label:'A vencer total', data:history.map(h=>h.precancelable), borderColor:'#0d9488', backgroundColor:'#0d9488', tension:.25} : null
+      ].filter(Boolean)},
     options:{responsive:true, maintainAspectRatio:false,
       plugins:{legend:{labels:{font:{size:11}}}, tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+money(ctx.raw)}}},
       scales:{ y:{ ticks:{ callback:v=>(v/1000000).toFixed(1)+'M', font:{size:10} } }, x:{ ticks:{font:{size:10}} } } }
@@ -1998,7 +2007,7 @@ function scorePF(d){
   else { b4=8; b4detalle='Inconsistencia menor o trámite de actualización pendiente.'; b4brecha='Para el máximo, hay que resolver la inconsistencia o completar el trámite de actualización pendiente en AFIP/ARCA.'; }
   blocks.push({nombre:'Identificación fiscal', pts:b4, max:15, detalle:b4detalle, brecha:b4brecha});
 
-  return finalizeRiesgoScore(blocks, redFlags, 'PF');
+  return finalizeRiesgoScore(blocks, redFlags, 'PF', d.cac);
 }
 function scorePJ(d){
   const blocks=[], redFlags=[];
@@ -2069,10 +2078,15 @@ function scorePJ(d){
   else { b5=8; b5detalle='Regularidad formal con observaciones menores.'; b5brecha='Para el máximo, hay que resolver las observaciones fiscales/previsionales pendientes.'; }
   blocks.push({nombre:'Regularidad societaria', pts:b5, max:15, detalle:b5detalle, brecha:b5brecha});
 
-  return finalizeRiesgoScore(blocks, redFlags, 'PJ');
+  return finalizeRiesgoScore(blocks, redFlags, 'PJ', d.cac);
 }
-function finalizeRiesgoScore(blocks, redFlags, tipo){
-  const puntaje = blocks.reduce((s,b)=>s+b.pts,0);
+function finalizeRiesgoScore(blocks, redFlags, tipo, cac){
+  const puntajeBase = blocks.reduce((s,b)=>s+b.pts,0);
+  // CAC (Conozca a su Cliente): suma hasta 5 puntos, sin pasar nunca de 100.
+  // No anula las banderas rojas (si hay alguna, igual queda en rojo).
+  const cacActivo = !!cac;
+  const cacBonus = cacActivo ? Math.min(5, Math.max(0, 100-puntajeBase)) : 0;
+  const puntaje = puntajeBase + cacBonus;
   let semaforo;
   if(redFlags.length>0) semaforo='ROJO';
   else if(puntaje>=66) semaforo='VERDE';
@@ -2092,7 +2106,7 @@ function finalizeRiesgoScore(blocks, redFlags, tipo){
     });
     if(mitigantes.length===0) mitigantes.push('Evaluar mayor Canon Inicial o garantías adicionales antes de aprobar.');
   }
-  return {tipo, puntaje, semaforo, blocks, redFlags, mitigantes:Array.from(new Set(mitigantes))};
+  return {tipo, puntaje, puntajeBase, cacActivo, cacBonus, semaforo, blocks, redFlags, mitigantes:Array.from(new Set(mitigantes))};
 }
 // arma los "datos clave" a destacar (Veraz/Nosis, resultado del balance,
 // tendencia de ventas, etc.) — se usa tanto en el panel web como en el PDF
@@ -2166,7 +2180,7 @@ function resetRiesgoForm(){
   state.riesgoNombre=''; state.riesgoDocEstados={}; state.riesgoDocErrores={};
   state.riesgoDatos={ canones:[{descripcion:'',monto:''}], regimenIngreso:'dependencia', antiguedadAnios:'',
     veraz:null, balance:null, ddjjIva:[null,null,null], reciboSueldo:null, monotributo:null,
-    ddjjGanancias:null, constanciaCuit:null };
+    ddjjGanancias:null, constanciaCuit:null, cac:false };
   riesgoPendingFiles = {};
 }
 // suma todos los cánones cargados (para operaciones con varias unidades/leasings
@@ -2269,9 +2283,11 @@ function buildRiesgoNueva(){
       html += '<label style="font-size:13px;">Antigüedad laboral (años)<br/>'+
         '<input type="number" step="0.1" id="riesgo-antiguedad" value="'+esc(state.riesgoDatos.antiguedadAnios)+'" style="width:120px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;margin-top:4px;" /></label>';
     }
-  } else {
-    html += '<span style="font-size:12.5px;color:var(--muted);">(sin campos adicionales para Persona Jurídica por ahora)</span>';
   }
+  html += '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;max-width:430px;'+(state.riesgoDatos.cac?'background:#f0fdf4;border:1px solid #bbf7d0;':'background:#f8fafc;border:1px solid var(--border);')+'border-radius:8px;padding:9px 12px;">'+
+    '<input type="checkbox" id="riesgo-cac" '+(state.riesgoDatos.cac?'checked':'')+' style="margin-top:3px;" />'+
+    '<span><b>CAC — Conozca a su Cliente</b><br/><span style="font-size:11.5px;color:var(--muted);">Cliente de la casa, conocido y de confianza. Suma 5 puntos al puntaje (tope 100). No anula las banderas rojas.</span></span>'+
+  '</label>';
   html += '</div></div>';
 
   html += buildDashboardRiesgo(resultado, state.riesgoDatos, state.riesgoTipoPersona);
@@ -2303,6 +2319,11 @@ function buildDashboardRiesgo(resultado, datos, tipoPersona){
       resultado.redFlags.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul></div>';
   }
 
+  if(resultado.cacActivo){
+    html += '<div class="banner info" style="margin-bottom:8px;">🤝 <span><b>CAC (Conozca a su Cliente) aplicado:</b> puntaje por bloques '+resultado.puntajeBase+' + bonificación '+
+      (resultado.cacBonus>0 ? '+'+resultado.cacBonus : '0 (ya estaba en 100)')+(resultado.cacBonus>0 && resultado.cacBonus<5 ? ' (tope de 100)' : '')+' = <b>'+resultado.puntaje+'</b>.'+
+      (resultado.redFlags.length ? ' El CAC no anula las banderas rojas: el resultado sigue en rojo.' : '')+'</span></div>';
+  }
   const datosClave = datos ? buildDatosClave(datos, tipoPersona) : [];
   if(datosClave.length){
     html += '<div class="stat-label" style="margin:12px 0 8px;">Datos clave</div>'+
@@ -2403,6 +2424,11 @@ async function exportEvaluacionPDF(nombre, tipoPersona, resultado, datos){
   doc.text(etiqueta, 50, y+22);
   doc.setTextColor(15,23,42); doc.setFontSize(20); doc.setFont(undefined,'bold');
   doc.text(resultado.puntaje.toFixed(0)+' / 100', 320, y+24);
+  if(resultado.cacActivo){
+    doc.setFontSize(8.5); doc.setFont(undefined,'normal'); doc.setTextColor(71,85,105);
+    doc.text('Incluye bonificación CAC (Conozca a su Cliente): '+(resultado.cacBonus>0?'+'+resultado.cacBonus:'+0')+' pts. Puntaje por bloques: '+resultado.puntajeBase+'.'+(resultado.redFlags.length?' El CAC no anula las banderas rojas.':''), 40, y+48);
+    y += 14;
+  }
   y += 55;
 
   function chequearSalto(altoNecesario){
@@ -2451,7 +2477,7 @@ async function exportEvaluacionPDF(nombre, tipoPersona, resultado, datos){
       b.nombre,
       b.pts+' / '+b.max,
       b.detalle + (b.pts<b.max && b.brecha ? (/^Para el máximo,/i.test(b.brecha) ? '\nPara llegar al máximo: '+b.brecha.replace(/^Para el máximo,\s*/i,'') : '\nPara llegar al máximo: '+b.brecha) : ''),
-    ]),
+    ]).concat(resultado.cacActivo ? [['Bonificación CAC (Conozca a su Cliente)', '+'+resultado.cacBonus, 'Cliente de la casa. Suma hasta 5 puntos, con tope de 100.']] : []),
     styles:{fontSize:9, cellPadding:5},
     headStyles:{fillColor:[10,112,161], textColor:255},
     columnStyles:{0:{cellWidth:130}, 1:{cellWidth:50}, 2:{cellWidth:'auto'}},
@@ -2991,11 +3017,18 @@ function onRootChange(e){
     else { state.trackHistoryRaw=[]; render(); }
   }
   else if(e.target.id==='informe-gerencia-select'){ state.informeGerencia = e.target.value; state.notice=''; state.error=''; render();
+  } else if(e.target.classList.contains('mora-serie-check')){
+    const serie = e.target.dataset.serie;
+    const otra = serie==='impago' ? 'precancelable' : 'impago';
+    if(!e.target.checked && !state.moraSeriesVisible[otra]){ e.target.checked = true; return; } // siempre queda al menos una línea
+    state.moraSeriesVisible[serie] = e.target.checked;
+    drawGeneralChart();
   } else if(e.target.classList.contains('presupuesto-concept-check')){
     toggleSetItem(state.presupuestoVisibleConcepts, e.target.value);
     drawPresupuestoChart();
   }
   else if(e.target.classList.contains('contrato-field') && e.target.dataset.field==='tipoTasa'){ state.contratoForm.tipoTasa = e.target.value; render(); }
+  else if(e.target.id==='riesgo-cac'){ state.riesgoDatos.cac = e.target.checked; render(); }
   else if(e.target.id==='riesgo-regimen'){ state.riesgoDatos.regimenIngreso = e.target.value; render(); }
   else if(e.target.id==='riesgo-antiguedad'){ state.riesgoDatos.antiguedadAnios = e.target.value; render(); }
   else if(e.target.classList.contains('riesgo-canon-desc')){
