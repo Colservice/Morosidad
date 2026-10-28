@@ -2572,10 +2572,12 @@ function scorePF(d){
   else{
     const situ=v.situacion_bcra;
     if(situ==null){ b1=0; b1detalle='No se pudo determinar la situación BCRA.'; b1brecha='Necesita un informe Veraz/Nosis que indique la situación BCRA.'; }
-    else if(situ>=3 || v.embargos_o_juicios_activos || (v.cheques_rechazados && !v.cheques_rechazados_regularizados)){
+    else if(situ>=3 || v.embargos_o_juicios_activos){
       b1=0; b1detalle='Situación BCRA '+situ+(v.embargos_o_juicios_activos?', con embargos/juicios activos':'')+'.';
       b1brecha='Requiere resolver la situación de riesgo (regularizar deuda/embargos) y llegar a situación 1 sin cheques rechazados.';
       redFlags.push('Veraz/Nosis: situación de riesgo (BCRA '+situ+(v.embargos_o_juicios_activos?', embargos/juicios activos':'')+').');
+    } else if(situ===1 && v.cheques_rechazados && !v.cheques_rechazados_regularizados){
+      b1=10; b1detalle='Situación 1, pero con cheques rechazados sin regularizar.'; b1brecha='Para subir, pagar los cheques rechazados (y acreditarlo con un informe actualizado) y no registrar nuevos rechazos.';
     } else if(situ===1 && !v.cheques_rechazados){ b1=35; b1detalle='Situación 1, sin cheques rechazados ni mora registrada.'; }
     else if(situ===1 && v.cheques_rechazados && v.cheques_rechazados_regularizados){ b1=20; b1detalle='Situación 1 con cheques rechazados ya regularizados.'; b1brecha='Para el máximo, no debería registrar cheques rechazados en el historial (aunque estén regularizados).'; }
     else if(situ===2){ b1=10; b1detalle='Situación 2 / deudas comerciales en gestión.'; b1brecha='Para el máximo, necesita subir a situación 1 en BCRA y no tener cheques rechazados.'; }
@@ -2635,8 +2637,10 @@ function scorePJ(d){
       b1=0; b1detalle='Situación BCRA '+situ+(v.embargos_o_juicios_activos?', con embargos/juicios activos':'')+'.';
       b1brecha='Requiere resolver la situación de riesgo (embargos fiscales/judiciales) y llegar a situación 1.';
       redFlags.push('Veraz/Nosis: situación de riesgo (BCRA '+situ+(v.embargos_o_juicios_activos?', embargos fiscales o judiciales':'')+').');
+    } else if(situ===1 && v.cheques_rechazados && !v.cheques_rechazados_regularizados){
+      b1=8; b1detalle='Situación 1 empresa, pero con cheques rechazados sin regularizar.'; b1brecha='Para subir, pagar los cheques rechazados (y acreditarlo con un informe actualizado) y no registrar nuevos rechazos.';
     } else if(situ===1 && !v.cheques_rechazados){ b1=25; b1detalle='Situación 1 en la empresa y sus socios/directores.'; }
-    else if(situ===1 && v.cheques_rechazados){ b1=15; b1detalle='Situación 1 empresa, cheques s/fondo ya pagados.'; b1brecha='Para el máximo, la empresa y sus socios/directores no deberían tener cheques rechazados en el historial.'; }
+    else if(situ===1 && v.cheques_rechazados && v.cheques_rechazados_regularizados){ b1=15; b1detalle='Situación 1 empresa, cheques s/fondo ya pagados.'; b1brecha='Para el máximo, la empresa y sus socios/directores no deberían tener cheques rechazados en el historial.'; }
     else if(situ===2){ b1=8; b1detalle='Situación 2 en la empresa.'; b1brecha='Para el máximo, la empresa necesita estar en situación 1 en BCRA, tanto ella como sus socios/directores.'; }
     else { b1=8; b1detalle='Situación '+situ+'.'; b1brecha='Para el máximo, la empresa necesita estar en situación 1 en BCRA, tanto ella como sus socios/directores.'; }
   }
