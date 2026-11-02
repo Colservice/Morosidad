@@ -3085,7 +3085,11 @@ async function analizarDocumentoIA(claveDoc, file){
     const b64 = await fileToBase64(file);
     const tipo = docTipoFor(claveDoc);
     const {data, error} = await sb.functions.invoke('leer-documento', { body: { tipo, pdf_base64: b64 } });
-    if(error) throw error;
+    if(error){
+      // supabase-js oculta el motivo real detrás de "non-2xx": lo leemos de la respuesta de la función
+      let real=''; try{ if(error.context && typeof error.context.json==='function'){ const j=await error.context.json(); real=(j&&(j.error||j.message))||''; } }catch(e2){}
+      throw new Error(real ? real : (error.message||'Error al llamar a la función'));
+    }
     if(!data || data.error) throw new Error((data && data.error) || 'La IA no pudo leer el documento.');
     if(claveDoc.startsWith('ddjjIva')){
       const idx = Number(claveDoc.replace('ddjjIva',''));
