@@ -3150,30 +3150,54 @@ function scorePF(d){
   let ingresoMensual=null;
   if(d.reciboSueldo && d.reciboSueldo.sueldo_neto) ingresoMensual=Number(d.reciboSueldo.sueldo_neto);
   else if(d.ddjjGanancias && d.ddjjGanancias.ingresos_declarados) ingresoMensual=Number(d.ddjjGanancias.ingresos_declarados)/12;
-  if(!ingresoMensual || !canon){ b2=0; b2detalle='Faltan datos de canon o ingreso mensual para calcular la relación.'; b2brecha='Cargá el/los cánones y el ingreso mensual (recibo de sueldo o DDJJ) para poder calcular este bloque.'; }
+  // DDJJ de IVA (opcional): solo puede MEJORAR el puntaje, nunca bajarlo
+  const ivaPF=(d.ddjjIva||[]).filter(Boolean).slice().sort((a,b)=>String(a.periodo||'').localeCompare(String(b.periodo||'')));
+  // base conservadora: el menor entre el promedio de los meses cargados y el mes más reciente
+  const ventasProm=ivaPF.length ? Math.min(ivaPF.reduce((t,x)=>t+(Number(x.ventas_gravadas)||0),0)/ivaPF.length, Number(ivaPF[ivaPF.length-1].ventas_gravadas)||0) : 0;
+  let b2ventas=null, ratioVentas=0;
+  if(canon && ventasProm>0){ ratioVentas=canon/ventasProm*100; b2ventas = ratioVentas<=10 ? 30 : ratioVentas<=20 ? 20 : ratioVentas<=35 ? 10 : 5; }
+  if(!ingresoMensual && b2ventas!=null){ b2=b2ventas; b2detalle='Sin recibo de sueldo ni DDJJ de Ganancias: se usaron las ventas de la DDJJ de IVA (base conservadora: '+money(ventasProm)+' por mes, el menor entre el promedio y el último mes). El canon representa el '+ratioVentas.toFixed(1)+'% de las ventas.'; if(b2<30) b2brecha='Para el máximo, el canon debería representar el 10% o menos de las ventas promedio (hoy '+ratioVentas.toFixed(1)+'%).'; }
+  else if(!ingresoMensual || !canon){ b2=0; b2detalle='Faltan datos de canon o ingreso mensual para calcular la relación.'; b2brecha='Cargá el/los cánones y el ingreso mensual (recibo de sueldo, DDJJ de Ganancias o DDJJ de IVA) para poder calcular este bloque.'; }
   else{
     const ratio=(canon/ingresoMensual)*100;
     if(ratio>50){ b2=0; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; b2brecha='La relación Canon/Ingreso supera el 50%; por reglamento la operación queda directamente incompatible.'; redFlags.push('Relación Canon Leasing / Ingreso Neto mayor al 50% ('+ratio.toFixed(1)+'%).'); }
     else if(ratio<=20){ b2=30; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; }
     else if(ratio<=35){ b2=20; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; b2brecha='Para el máximo, la relación Canon/Ingreso debería bajar al 20% o menos (hoy está en '+ratio.toFixed(1)+'%).'; }
     else { b2=10; b2detalle='Relación Canon/Ingreso: '+ratio.toFixed(1)+'%.'; b2brecha='Para el máximo, la relación Canon/Ingreso debería bajar al 20% o menos (hoy está en '+ratio.toFixed(1)+'%).'; }
+    if(ratio<=50 && b2ventas!=null && b2ventas>b2){ b2=b2ventas; b2detalle+=' Mejorado por las ventas de la DDJJ de IVA: el canon representa el '+ratioVentas.toFixed(1)+'% de las ventas (base conservadora).'; b2brecha=b2<30 ? 'Para el máximo, el canon debería representar el 10% o menos de las ventas promedio (hoy '+ratioVentas.toFixed(1)+'%).' : ''; }
   }
   blocks.push({nombre:'Capacidad de pago', pts:b2, max:30, detalle:b2detalle, brecha:b2brecha});
 
   let b3=0,b3detalle='',b3brecha='';
-  if(d.regimenIngreso==='dependencia'){
+  // si el selector quedó en "dependencia" pero no hay recibo y sí hay DDJJ de Ganancias o Monotributo, se evalúa como autónomo
+  // (no se descuentan puntos por no tener recibo de sueldo cuando la persona no está en relación de dependencia)
+  let regimenEf=d.regimenIngreso;
+  if(regimenEf==='dependencia' && !d.reciboSueldo && (d.ddjjGanancias || d.monotributo || (d.ddjjIva||[]).some(Boolean))) regimenEf='autonomo';
+  if(regimenEf==='dependencia'){
     const r=d.reciboSueldo, ant=Number(d.antiguedadAnios)||0;
-    if(!r){ b3=0; b3detalle='Falta el recibo de sueldo.'; b3brecha='Cargá el recibo de sueldo para poder puntuar este bloque.'; }
+    if(!r){ b3=0; b3detalle='Falta documentación de respaldo de ingresos (recibo de sueldo, DDJJ de Ganancias o pagos de Monotributo).'; b3brecha='Cargá el recibo de sueldo (si es empleado) o el DDJJ de Ganancias/Bienes Personales o los pagos de Monotributo (si es autónomo).'; }
     else if(ant>3){ b3=20; b3detalle='Empleo estable, antigüedad mayor a 3 años.'; }
     else if(ant>=1){ b3=12; b3detalle='Antigüedad entre 1 y 3 años.'; b3brecha='Para el máximo, necesita más de 3 años de antigüedad laboral (hoy tiene '+ant+').'; }
     else { b3=5; b3detalle='Antigüedad menor a 1 año.'; b3brecha='Para el máximo, necesita más de 3 años de antigüedad laboral (hoy tiene '+ant+').'; }
-  } else if(d.regimenIngreso==='autonomo'){
+  } else if(regimenEf==='autonomo'){
     const dg=d.ddjjGanancias, mono=d.monotributo;
     if(dg){ b3=20; b3detalle='DDJJ de Ganancias/Bienes Personales con patrimonio solvente.'; }
     else if(mono && mono.pagos_al_dia && (mono.meses_cubiertos||0)>=6){ b3=20; b3detalle='Monotributo al día, últimos 6 pagos cubiertos.'; }
     else if(mono){ b3=10; b3detalle='Monotributo con pagos parciales o moratoria.'; b3brecha='Para el máximo, necesita el DDJJ de Ganancias/Bienes Personales, o 6 pagos consecutivos de Monotributo al día.'; }
     else { b3=0; b3detalle='Falta documentación de respaldo de ingresos.'; b3brecha='Cargá el DDJJ de Ganancias/Bienes Personales o los pagos de Monotributo.'; }
   } else { b3=0; b3detalle='No se indicó el régimen de ingresos (dependencia / autónomo).'; b3brecha='Elegí el régimen de ingresos del evaluado.'; }
+  // DDJJ de IVA como respaldo adicional: se toma el mejor de los respaldos (nunca resta)
+  if(ivaPF.length){
+    let bi=0, bid='';
+    if(ivaPF.length===1){ bi=10; bid='DDJJ de IVA de 1 mes cargada.'; }
+    else{
+      const f0=ivaPF[0].ventas_gravadas||0, l0=ivaPF[ivaPF.length-1].ventas_gravadas||0, vr=f0>0?((l0-f0)/f0*100):0;
+      if(vr>=-10){ bi=20; bid='DDJJ de IVA ('+ivaPF.length+' meses): ventas estables ('+vr.toFixed(1)+'%).'; }
+      else if(vr>=-30){ bi=12; bid='DDJJ de IVA: ventas con variaciones moderadas ('+vr.toFixed(1)+'%).'; }
+      else { bi=5; bid='DDJJ de IVA: caída fuerte de ventas ('+vr.toFixed(1)+'%).'; }
+    }
+    if(bi>b3){ b3=bi; b3detalle=bid+' Mejora el respaldo de ingresos.'; b3brecha=b3<20?'Para el máximo, las ventas del IVA deberían mantenerse estables (o presentar DDJJ de Ganancias / Monotributo al día).':''; }
+  }
   blocks.push({nombre:'Respaldo de ingresos', pts:b3, max:20, detalle:b3detalle, brecha:b3brecha});
 
   let b4=0,b4detalle='',b4brecha='';
@@ -3318,7 +3342,7 @@ function buildDatosClave(datos, tipoPersona){
       items.push({label:'Apalancamiento (Pasivo/PN)', valor: (pas/pn2).toFixed(2)+'x', alerta: (pas/pn2)>4});
     }
   }
-  if(tipoPersona==='PJ'){
+  if(tipoPersona==='PJ' || tipoPersona==='PF'){
     const ddjjs=(datos.ddjjIva||[]).filter(Boolean).slice().sort((a,b)=>String(a.periodo||'').localeCompare(String(b.periodo||'')));
     if(ddjjs.length>=2){
       const first=ddjjs[0].ventas_gravadas||0, last=ddjjs[ddjjs.length-1].ventas_gravadas||0;
@@ -3386,6 +3410,9 @@ function docsParaTipo(tipo){
     {clave:'reciboSueldo', label:'Últimos recibos de sueldo (si es empleado en relación de dependencia)'},
     {clave:'ddjjGanancias', label:'DDJJ Ganancias/Bienes Personales (si es autónomo)'},
     {clave:'monotributo', label:'Últimos pagos de Monotributo (si es monotributista)'},
+    {clave:'ddjjIva0', label:'DDJJ de IVA o reporte de ventas — opcional, puede mejorar el puntaje (podés subir 1 archivo con varios meses acá)'},
+    {clave:'ddjjIva1', label:'DDJJ de IVA — mes 2 (opcional)'},
+    {clave:'ddjjIva2', label:'DDJJ de IVA — mes 3 (opcional, el más reciente)'},
     {clave:'veraz', label:'Informe Veraz / Nosis actualizado'},
   ];
   return [
