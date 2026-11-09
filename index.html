@@ -287,8 +287,8 @@ tfoot td{border-top:1px solid var(--border2);}
    =================================================================== */
 const TRANSCOL_ICON_B64 = "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"; // ícono cuadrado (para el header de la web)
 const TRANSCOL_LOGO_B64 = "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"; // logo completo (para el PDF)
-const SUPABASE_URL = "https://vjgobneflufsqrsyopar.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_v4vIFnOjY99SquN-j7VZMg_rpYbejFP";
+const SUPABASE_URL = "https://colservice.github.io/Morosidad/";
+const SUPABASE_ANON_KEY = "https://vjgobneflufsqrsyopar.supabase.co";
 const APP_PASSWORD = "Colservice"; // clave compartida para entrar al panel
 /* =================================================================== */
 
@@ -1383,6 +1383,7 @@ function buildCotizador(){
   const segBtn=(v,l)=>'<button class="btn '+(f.tipo===v?'btn-primary':'')+'" style="width:auto;padding:8px 18px;" data-action="cot-tipo" data-value="'+v+'">'+l+'</button>';
   let html='<h2 class="section-title">Cotizador</h2>'+
     '<p class="section-sub">Elegí el tipo de operación y cargá los datos: el cuadro se calcula solo y después descargás el PDF para el cliente.</p>'+
+    '<div id="vz-panel">'+vzPanelHtml()+'</div>'+
     '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;"><span class="stat-label" style="margin:0 6px 0 0;">Tipo de operación</span>'+segBtn('LEASING','Leasing')+segBtn('PRENDARIO','Préstamo prendario')+'</div>';
   html+='<div class="card pad" style="margin-bottom:12px;"><div class="stat-label" style="margin-bottom:4px;">1. Operación</div><div style="'+grid+'">'+
     fld('Cliente',input('cliente','Ej: Pedro Sanchez'))+fld('Proveedor',input('proveedor','Ej: Colcar'))+fld('Bien',input('bien','Ej: Sprinter'))+
@@ -1532,6 +1533,7 @@ async function cotDescargar(){
   try{ const doc=cotArmarPdf(d); doc.save(cotNombrePdf(d)); state.notice='Descargué '+cotNombrePdf(d)+aviso; }
   catch(e){ state.error='No pude armar el PDF: '+((e&&e.message)||e); }
   cotRender();
+  return state.error ? null : (d.referencia||null);
 }
 async function cotGuardar(){
   const d=cotDatosPdf(); if(!d) return;
@@ -1587,6 +1589,811 @@ function cotOnChange(e){
 }
 
 // ============ FIN COTIZADOR ============
+// ============ ASISTENTE DE VOZ (Coti) ============
+/* ===== ASISTENTE DE VOZ PARA COTIZACIONES (Coti): motor de diálogo y comprensión del español =====
+   Todo lo de este bloque es lógica pura (no toca el navegador): se prueba aparte con miles de frases. */
+
+// ---------- normalización ----------
+function vzNorm(t){
+  return String(t==null?'':t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/%/g,' por ciento ').replace(/\$/g,' pesos ')
+    .replace(/(\d),(?=\d)/g,'$1\u0001').replace(/(\d)\.(?=\d)/g,'$1\u0002')   // separadores entre dígitos: se conservan tal cual
+    .replace(/[^a-z0-9\u0001\u0002\s]/g,' ').replace(/\u0001/g,',').replace(/\u0002/g,'.').replace(/\s+/g,' ').trim();
+}
+// ---------- números en palabras (para HABLAR) ----------
+const VZ_U=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
+const VZ_T=['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+const VZ_H=['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
+function vzBajoMil(n,apoc){
+  if(n===0) return '';
+  if(n===100) return 'cien';
+  let out=[]; const h=Math.floor(n/100), r=n%100;
+  if(h) out.push(VZ_H[h]);
+  if(r){
+    if(r<30) out.push(VZ_U[r]);
+    else { const d=Math.floor(r/10), u=r%10; out.push(u? VZ_T[d]+' y '+VZ_U[u] : VZ_T[d]); }
+  }
+  let s=out.join(' ');
+  if(apoc){ s=s.replace(/veintiuno$/,'veintiún').replace(/ uno$/,' un').replace(/^uno$/,'un'); }
+  return s;
+}
+function vzPalabras(n,apoc){          // entero 0 .. 999.999.999.999
+  n=Math.round(n); if(n===0) return 'cero';
+  const parts=[]; const mm=Math.floor(n/1e6), resto=n%1e6;
+  if(mm){ parts.push(mm===1 ? 'un millón' : vzPalabras(mm,true)+' millones'); }
+  const t=Math.floor(resto/1000), u=resto%1000;
+  if(t){ parts.push(t===1 ? 'mil' : vzBajoMil(t,true)+' mil'); }
+  if(u){ parts.push(vzBajoMil(u,apoc)); }
+  return parts.join(' ');
+}
+function vzDinero(x,moneda){          // 2208972.06 -> "dos millones ... pesos con seis centavos"
+  x=Math.round(x*100)/100; const ent=Math.floor(x+1e-9), cent=Math.round((x-ent)*100);
+  const nom = moneda==='USD' ? 'dólares' : 'pesos', nomS = moneda==='USD' ? 'dólar' : 'peso';
+  let s;
+  if(ent===1) s='un '+nomS;
+  else if(ent>=1e6 && ent%1e6===0) s=vzPalabras(ent,true)+' de '+nom;
+  else s=vzPalabras(ent,true)+' '+nom;
+  if(cent){ s+=' con '+vzPalabras(cent,true)+(cent===1?' centavo':' centavos'); }
+  return s;
+}
+function vzPct(x){                     // 34.5625 -> "treinta y cuatro coma cinco seis dos cinco por ciento"
+  const t=(Math.round(x*10000)/10000).toString(); const [e,d]=t.split('.');
+  let s=vzPalabras(Number(e),false);
+  if(d) s+=' coma '+d.split('').map(c=>VZ_U[Number(c)]).join(' ');
+  return s+' por ciento';
+}
+function vzPctNum(x){ return (Math.round(x*10000)/10000).toString().replace('.',','); }
+function vzMeses(n){ return vzPalabras(n,true)+(n===1?' mes':' meses'); }
+
+// ---------- números en palabras (para ENTENDER) ----------
+const VZ_UNI={cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9};
+const VZ_TEEN={diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,
+  veintiun:21,veintiuno:21,veintiuna:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29};
+const VZ_TENS={treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90};
+const VZ_HUND={cien:100,ciento:100,doscientos:200,doscientas:200,trescientos:300,trescientas:300,cuatrocientos:400,cuatrocientas:400,quinientos:500,quinientas:500,seiscientos:600,seiscientas:600,setecientos:700,setecientas:700,ochocientos:800,ochocientas:800,novecientos:900,novecientas:900};
+const VZ_ESCALA={mil:1e3,lucas:1e3,luca:1e3,millon:1e6,millones:1e6,palo:1e6,palos:1e6};
+function vzIsDigitsTok(t){ return /^\d+([.,]\d+)*$/.test(t); }
+function vzDigitsVal(t,kind){
+  if(/^\d+$/.test(t)) return Number(t);
+  if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t) && !(kind==='pct' && /^\d{1,3}\.\d{3}$/.test(t))) return Number(t.replace(/\./g,'').replace(',','.'));
+  if(/^\d+,\d+$/.test(t)) return Number(t.replace(',','.'));
+  if(/^\d+\.\d+$/.test(t)) return Number(t);
+  if(/^\d{1,3}(,\d{3})+$/.test(t) && kind!=='pct') return Number(t.replace(/,/g,''));
+  const n=Number(t.replace(/\./g,'').replace(',','.')); return isFinite(n)?n:NaN;
+}
+/* Busca el primer número en el texto. kind: 'money' | 'pct' | 'int'. Devuelve {value, rest} o null. */
+function vzParseNum(text,kind){
+  const tk=vzNorm(text).split(' ').filter(Boolean);
+  let i=0;
+  const isNumTok=t=>vzIsDigitsTok(t)||t in VZ_UNI||t in VZ_TEEN||t in VZ_TENS||t in VZ_HUND||t in VZ_ESCALA;
+  while(i<tk.length && !isNumTok(tk[i])) i++;
+  if(i>=tk.length) return null;
+  let total=0, grp=0, cur=0, hayCur=false, started=false;
+  // estado gramatical dentro de un grupo <1000: 0=nada,1=centenas,2=decena(30-90) esperando 'y',3=teen/unidad cerrada
+  let g=0, usedDigits=false;
+  let lastScale=0;
+  while(i<tk.length){
+    const t=tk[i];
+    if(vzIsDigitsTok(t)){
+      if(hayCur && g!==0) break;                     // dos números seguidos: es otro número
+      const v=vzDigitsVal(t,kind); if(!isFinite(v)) break;
+      cur+=v; hayCur=true; usedDigits=true; g=3; i++; started=true; continue;
+    }
+    if(t in VZ_HUND){ if(g>=1) break; cur+=VZ_HUND[t]; hayCur=true; g=1; i++; started=true; continue; }
+    if(t in VZ_TEEN){ if(g>=2) break; cur+=VZ_TEEN[t]; hayCur=true; g=3; i++; started=true; continue; }
+    if(t in VZ_TENS){ if(g>=2) break; cur+=VZ_TENS[t]; hayCur=true; g=2; i++; started=true; continue; }
+    if(t in VZ_UNI){
+      if(g===2) break;                                // "treinta cuatro" sin "y": no es un número válido
+      if(g===3 && !(started && false)) { if(hayCur) break; }
+      cur+=VZ_UNI[t]; hayCur=true; g=3; i++; started=true; continue;
+    }
+    if(t==='y' && g===2 && i+1<tk.length && tk[i+1] in VZ_UNI && VZ_UNI[tk[i+1]]>0){ i++; g=0.5; // "treinta y <unidad>"
+      const u=VZ_UNI[tk[i]]; cur+=u; i++; g=3; continue; }
+    if(t in VZ_ESCALA){
+      const esc=VZ_ESCALA[t];
+      if(esc===1e3){ grp+=(hayCur?cur:1)*1e3; cur=0; hayCur=false; g=0; i++; started=true; continue; }
+      const m=(grp+(hayCur?cur:0))||1;
+      total+=m*1e6; lastScale=1e6; grp=0; cur=0; hayCur=false; g=0; i++; started=true; continue;
+    }
+    break;
+  }
+  if(!started) return null;
+  let value=total+grp+cur;
+  // decimales: "coma/punto/con <dígitos>" o "y medio/cuarto"
+  if(i<tk.length && (tk[i]==='coma'||tk[i]==='punto'||tk[i]==='con') && i+1<tk.length){
+    let j=i+1, ds='';
+    while(j<tk.length){
+      const t=tk[j];
+      if(/^\d+$/.test(t)){ ds+=t; j++; }
+      else if(t in VZ_UNI && !(t==='un'||t==='una') ){ ds+=String(VZ_UNI[t]); j++; }
+      else if(t in VZ_TEEN){ ds+=String(VZ_TEEN[t]); j++; }
+      else if(t in VZ_TENS){ let v=VZ_TENS[t]; j++; if(tk[j]==='y' && tk[j+1] in VZ_UNI && VZ_UNI[tk[j+1]]>0){ v+=VZ_UNI[tk[j+1]]; j+=2; } ds+=String(v); }
+      else break;
+      if(ds.length>=6) break;
+    }
+    if(ds){ value=Number(String(Math.floor(value))+'.'+ds); i=j; }
+  } else if(i+1<tk.length && tk[i]==='y' && (tk[i+1]==='medio'||tk[i+1]==='media')){ value+=(lastScale>=1e6 && cur===0 && grp===0)?lastScale/2:0.5; i+=2; }
+  else if(i+1<tk.length && tk[i]==='y' && tk[i+1]==='cuarto'){ value+=0.25; i+=2; }
+  else if(i+2<tk.length && tk[i]==='y' && tk[i+1]==='tres' && tk[i+2]==='cuartos'){ value+=0.75; i+=3; }
+  return { value, rest:tk.slice(i).join(' '), digits:usedDigits };
+}
+
+// ---------- utilidades de comprensión ----------
+function vzToks(t){ return vzNorm(t).split(' ').filter(Boolean); }
+function vzHasTok(toks,list){ return toks.some(t=>list.indexOf(t)>=0); }
+const VZ_SI=['si','sisi','claro','dale','ok','okey','okay','correcto','exacto','perfecto','afirmativo','confirmo','confirmado','listo','genial','joya','barbaro','adelante','vamos','mandale','hacelo','generalo','genera','generala','yes','bueno','buenisimo','excelente','asi'];
+const VZ_NO=['no','nop','nope','negativo','nunca','mal','incorrecto','error','equivocado','equivocada','cancelar'];
+function vzSiNo(text){
+  const tk=vzToks(text); if(!tk.length) return null;
+  const j=tk.join(' '), NEG=['nop','nope','negativo','nunca','mal','incorrecto','equivocado','equivocada','error'];
+  const n=tk.indexOf('no')>=0 || vzHasTok(tk,NEG);
+  const s=vzHasTok(tk,VZ_SI) || /\b(de acuerdo|esta bien|asi es|por supuesto|todo bien|esta perfecto|esta correcto|seguro|obvio)\b/.test(j);
+  if(/^(no hay (problema|drama)|no pasa nada|no esta mal|no esta nada mal|no es incorrecto)\b/.test(j) && !/^\s*no\s*[,;.]/i.test(String(text))) return 'si';
+  if(n && s){
+    if(/^\s*no\s*[,;.]/i.test(String(text))) return 'no';
+    if(tk[0]==='no' || NEG.indexOf(tk[0])>=0) return 'no';
+    if(VZ_SI.indexOf(tk[0])>=0) return 'si';
+    return null;
+  }
+  if(s) return 'si';
+  if(n) return 'no';
+  return null;
+}
+function vzCapital(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function vzLimpiaTexto(raw,tipo){
+  let s=String(raw||'').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim();
+  s=s.replace(/^(?:(?:el|la|los|las)\s+)?(?:cliente|proveedor|bien|producto|equipo|veh[ií]culo|unidad|empresa|raz[oó]n social|nombre|marca y modelo|modelo)\s*(?::|es|se llama|ser[aá]|ser[ií]a|son)?\s+/i,'');
+  s=s.replace(/^(?:se llama|es|ser[ií]a|ser[aá]|son|para|el nombre es|se trata de|dice|a nombre de)\s+/i,'');
+  if(tipo==='bien') s=s.replace(/^(?:un|una|unos|unas)\s+/i,'');
+  s=s.replace(/[,;:!?]+$/,'').trim(); if(!/\b(?:S\.A|S\.R\.L|S\.A\.S|S\.H|S\.A\.U|S\.C\.A|S\.E)\.?$/i.test(s)) s=s.replace(/\.+$/,'').trim(); else if(!/\.$/.test(s)) s+='.';
+  if(s && s===s.toLowerCase()){
+    const peq=['de','del','la','las','el','los','y','e','en','con','para','por','a'];
+    s=s.split(' ').map((w,i)=>{
+      if(w==='sa') return 'S.A.'; if(w==='srl') return 'S.R.L.'; if(w==='sas') return 'S.A.S.'; if(w==='sh') return 'S.H.'; if(w==='s.a') return 'S.A.';
+      if(tipo==='bien') return i===0?vzCapital(w):w;
+      return (i>0 && peq.indexOf(w)>=0)?w:vzCapital(w);
+    }).join(' ');
+  }
+  return vzCapital(s);
+}
+function vzDiaTxt(iso){ // "2026-11-06" -> "6 de noviembre"
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||''); if(!m) return '';
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const d=Number(m[3]); return (d===1?'primero':vzPalabras(d,false))+' de '+meses[Number(m[2])-1];
+}
+
+// ---------- campos que se pueden corregir ----------
+function vzCampo(text){
+  const t=vzNorm(text), tk=t.split(' ');
+  const has=w=>tk.indexOf(w)>=0, rx=r=>r.test(t);
+  const num=vzParseNum(text,'pct')!==null;
+  if(rx(/\b(valor|cotizacion|numero|dato)\b.*\b(tamar|badlar)\b/) || ((has('tamar')||has('badlar')) && num && !/\b(spread)\b/.test(t))) return 'refValor';
+  if(has('tamar')||has('badlar')||has('referencia')) return 'ref';
+  if(rx(/\btipo de tasa\b|\btasa (variable|fija)\b/) || (has('tasa') && !has('nominal') && !has('anual') && !rx(/\btasa (nominal|anual)\b/))) return 'tipoTasa';
+  if(has('spread')||has('margen')||has('diferencial')) return 'spread';
+  if(has('tna')||rx(/\btasa nominal\b/)) return 'tnaFija';
+  if(has('ltv')||has('financiar')||has('financiacion')||has('financiado')||rx(/\bporcentaje (a|de) financi/)) return 'ltv';
+  if(has('deposito')||has('garantia')) return 'deposito';
+  if(has('opcion')||has('residual')||rx(/\bopcion de compra\b/)) return 'opcion';
+  if(has('gastos')||has('gasto')||has('estructuracion')||has('comision')) return 'gastos';
+  if(has('plazo')||has('meses')||has('cuotas')||has('anos')) return 'plazo';
+  if(has('precio')||has('importe')||has('monto')||has('valor')||has('costo')) return 'precio';
+  if(has('iva')||has('alicuota')) return 'iva';
+  if(has('moneda')||has('dolares')||has('dolar')||has('pesos')) return 'moneda';
+  if(has('cantidad')||has('unidades')||has('unidad')) return 'cantidad';
+  if(has('cliente')||has('titular')||has('comprador')) return 'cliente';
+  if(has('proveedor')||has('vendedor')||has('concesionaria')||has('agencia')) return 'proveedor';
+  if(has('bien')||has('producto')||has('equipo')||has('vehiculo')||has('modelo')||has('camion')||has('camioneta')) return 'bien';
+  if(has('leasing')||has('prendario')||has('prestamo')||has('operacion')||has('tipo')) return 'tipo';
+  return null;
+}
+/* comandos que valen en cualquier momento */
+function vzComando(text,libre){
+  const t=vzNorm(text); if(!t) return null;
+  const exact=(re)=>new RegExp('^('+re+')$').test(t), pref=(re)=>new RegExp('^('+re+')( |$)').test(t);
+  const m=libre?exact:pref;
+  if(m('cancelar|cancela|cancelalo|cancelame|salir|sali|chau|chao|abortar|terminar|terminemos|basta|dejalo|olvidalo|no quiero seguir')) return {cmd:'cancel'};
+  if(exact('repetir|repeti|repite|repetime|repetila|de nuevo|otra vez|como|que|que dijiste|no te escuche|no escuche|no entendi|como dijiste|perdon|que pregunta')||(!libre&&pref('repetir|repeti|repite|repetime|repetila'))) return {cmd:'repeat'};
+  if(m('volver|volve|volvamos|atras|anterior|paso anterior|retroceder|retrocede|pregunta anterior|volver atras')) return {cmd:'back'};
+  if(m('pausa|pausar|pausalo|pausame|espera|esperame|aguarda|aguardame|un momento|un segundito|un segundo|momento|stop|detenete|detener')) return {cmd:'pause'};
+  const fx=/^(?:corregir|corregi|corrige|corregime|cambiar|cambia|cambiame|cambiemos|modificar|modifica|modificame|editar|edita|rehacer|rehace|equivoque|me equivoque en|esta mal|esta mal el|esta mal la|quiero cambiar|quiero corregir|quiero modificar|necesito cambiar|necesito corregir|podes cambiar|podes corregir|podrias cambiar|corregir el|corregir la)\b/;
+  if(fx.test(t)){ const campo=vzCampo(t.replace(fx,' ')); if(libre && !campo) return null; return {cmd:'fix', field:campo}; }
+  return null;
+}
+
+// ---------- parsers de cada respuesta ----------
+const VZ_PCTMAX={ltv:100,deposito:100,opcion:99.99,gastos:100,spread:1000,tnaFija:1000};
+function vzParsePct(text,opts){
+  opts=opts||{};
+  const tk=vzToks(text), j=tk.join(' ');
+  if(/\b(no se|ni idea|no tengo idea|no me acuerdo)\b/.test(j)) return {ok:false,msg:'No hay problema, pensalo un momento. Cuando tengas el dato, decímelo.'};
+  if(tk.indexOf('menos')>=0 || /^-\s*\d/.test(String(text).trim())) return {ok:false,msg:'No puede ser negativo.'};
+  const n=vzParseNum(text,'pct');
+  if(n===null){
+    if(opts.cero && (vzHasTok(tk,['nada','ninguno','ninguna','sin','nulo','exento','no','cero']) || /\bno hay\b/.test(j))) return {ok:true,value:0};
+    return {ok:false,msg:'No escuché ningún número.'};
+  }
+  if(!isFinite(n.value)) return {ok:false,msg:'No pude interpretar el número.'};
+  return {ok:true,value:n.value,rest:n.rest};
+}
+function vzParseIva(text){
+  const tk=vzToks(text), j=tk.join(' ');
+  if(/\b(exento|exenta|sin iva|no gravado|no grava|libre de iva|cero)\b/.test(j) && !/\d/.test(j)) return {ok:true,value:0};
+  const n=vzParseNum(text,'pct');
+  if(!n) return {ok:false,msg:'No escuché la alícuota.'};
+  let v=n.value;
+  if(v===10 && /^(cinco|5|coma|punto|con|y medio|y media)\b/.test(n.rest)) v=10.5;           // "diez cinco"
+  if(Math.abs(v-10.5)<1e-9||Math.abs(v-21)<1e-9||v===0) return {ok:true,value:v};
+  if(v===105) return {ok:true,value:10.5};                                                   // "ciento cinco" mal oído
+  return {ok:false,msg:'El IVA puede ser veintiuno por ciento, diez coma cinco por ciento, o exento.'};
+}
+function vzParsePlazo(text){
+  const j=vzNorm(text);
+  if(/\b(no se|ni idea)\b/.test(j)) return {ok:false,msg:'Tomate un momento.'};
+  const n=vzParseNum(text,'int'); if(!n) return {ok:false,msg:'No escuché el plazo.'};
+  let v=n.value, rest=n.rest, unit=null;
+  const m=/^(ano|anos|mes|meses|cuota|cuotas)\b\s*(.*)$/.exec(rest);
+  if(m){
+    rest=m[2];
+    if(/^an/.test(m[1])){
+      unit='anos'; v=v*12;
+      if(/^y medio\b|^y media\b/.test(rest)){ v+=6; }
+      else { const y=/^y\s+(.*)$/.exec(rest); if(y){ const n2=vzParseNum(y[1],'int'); if(n2 && /^(mes|meses)\b/.test(n2.rest)) v+=n2.value; } }
+    } else unit='meses';
+  } else if(/^y medio|^y media/.test(rest)) { /* "tres y medio" sin unidad: ambiguo */ }
+  if(Math.abs(v-Math.round(v))>1e-9) return {ok:false,msg:'El plazo tiene que ser en meses enteros.'};
+  v=Math.round(v);
+  if(v<1||v>120) return {ok:false,msg:'El plazo tiene que estar entre 1 y 120 meses.'};
+  if(!unit && v<12) return {ok:true,value:v,ambiguo:true};
+  return {ok:true,value:v};
+}
+function vzParseMonto(text,moneda){
+  const n=vzParseNum(text,'money'); if(!n) return {ok:false,msg:'No escuché el importe.'};
+  if(!(n.value>0)) return {ok:false,msg:'El importe tiene que ser mayor a cero.'};
+  if(n.value>1e12) return {ok:false,msg:'Ese importe es demasiado grande.'};
+  return {ok:true,value:n.value};
+}
+function vzParseTipo(text){
+  const tk=vzToks(text), j=tk.join(' ');
+  const L=/\b(leasing|lising|liasing|leasin|lizing|lising|liesing|lesin|alquiler con opcion)\b/.test(j) || tk.some(t=>/^l[ie]+[sz]+[ie]*ng?$/.test(t));
+  const P=/\b(prendario|prendaria|prendarios|prenda|prestamo|credito|prestamo prendario|credito prendario|prendar)\b/.test(j) || tk.some(t=>/^prend/.test(t));
+  if(L&&!P) return {ok:true,value:'LEASING'}; if(P&&!L) return {ok:true,value:'PRENDARIO'};
+  if(L&&P) return {ok:false,msg:'Elegí una sola: leasing o préstamo prendario.'};
+  return {ok:false,msg:'Decime leasing o préstamo prendario.'};
+}
+function vzParseMoneda(text){
+  const tk=vzToks(text), j=tk.join(' ');
+  const D=tk.some(t=>['dolar','dolares','usd','verdes','verde','billete','billetes','u$s','us$','dollar','dollars','dolarez'].indexOf(t)>=0)||/\bu s d\b/.test(j);
+  const P=tk.some(t=>['peso','pesos','ars','argentinos','argentino','moneda nacional','pesito','pesitos'].indexOf(t)>=0)||/\bmoneda nacional\b/.test(j);
+  if(D&&!P) return {ok:true,value:'USD'}; if(P&&!D) return {ok:true,value:'ARS'};
+  if(D&&P) return {ok:false,msg:'Elegí una sola moneda: pesos o dólares.'};
+  return {ok:false,msg:'Decime si es en pesos o en dólares.'};
+}
+function vzRefDe(tk){
+  const jj=tk.join(' ');
+  if(/\bta ?mar\b|\btama[lr]\b/.test(jj)) return 'TAMAR';
+  if(/\b[bv]a[dt] ?l[ao]r/.test(jj)) return 'BADLAR';
+  if(tk.some(t=>/^tam[ao]?r?a?l?$/.test(t)||t==='tamal'||t==='tamara'||t==='tamer'||t==='thamar'||t==='tamarr')) return 'TAMAR';
+  if(tk.some(t=>/^[bv]a[dt]l[ao]r?d?$/.test(t)||t==='badlar'||t==='vadlar'||t==='batlar'||t==='badla'||t==='baglar'||t==='badlard')) return 'BADLAR';
+  return null;
+}
+function vzParseTipoTasa(text){
+  const tk=vzToks(text), j=tk.join(' ');
+  const ref=vzRefDe(tk);
+  const F=/\b(fija|fijo)\b/.test(j), V=/\b(variable|variables|flotante|movil)\b/.test(j);
+  if(F&&(V||ref)) return {ok:false,msg:'Elegí una: fija o variable.'};
+  if(F) return {ok:true,value:'Fija'};
+  if(V||ref) return {ok:true,value:'Variable',ref:ref};
+  return {ok:false,msg:'Decime si la tasa es variable o fija.'};
+}
+function vzParseRef(text){
+  const tk=vzToks(text), r=vzRefDe(tk);
+  const t=/\btam/.test(tk.join(' ')), b=/\b[bv]a[dt]l/.test(tk.join(' '));
+  if(r && !(t&&b)) return {ok:true,value:r};
+  return {ok:false,msg:'Decime TAMAR o BADLAR.'};
+}
+function vzParseCantidad(text){
+  const n=vzParseNum(text,'int'); if(!n) return {ok:false,msg:'No escuché la cantidad.'};
+  if(Math.abs(n.value-Math.round(n.value))>1e-9||n.value<1) return {ok:false,msg:'La cantidad tiene que ser un número entero, de uno en adelante.'};
+  if(n.value>9999) return {ok:false,msg:'Esa cantidad es demasiado grande.'};
+  return {ok:true,value:Math.round(n.value)};
+}
+
+// ---------- motor de diálogo ----------
+function vzNum2(v){ return String(Math.round(v*10000)/10000).replace('.',','); }
+function vzSteps(f,st){
+  const prend=f.tipo==='PRENDARIO', s=['tipo','cliente','proveedor','bien','cantidad','moneda','iva','precio'];
+  if(prend) s.push('ltv');
+  s.push('tipoTasa');
+  if(f.tipoTasa==='Variable'){ s.push('ref'); if(st.refNecesitaValor(f.ref)) s.push('refValor'); s.push('spread'); } else s.push('tnaFija');
+  s.push('plazo','deposito'); if(!prend) s.push('opcion'); s.push('gastos');
+  return s;
+}
+const VZ_NOMBRE={tipo:'el tipo de operación',cliente:'el cliente',proveedor:'el proveedor',bien:'el bien',cantidad:'la cantidad',moneda:'la moneda',iva:'el IVA',precio:'el precio',ltv:'el porcentaje a financiar',tipoTasa:'el tipo de tasa',ref:'la tasa de referencia',refValor:'el valor de la tasa de referencia',spread:'el spread',tnaFija:'la tasa fija',plazo:'el plazo',deposito:'el depósito en garantía',opcion:'la opción de compra',gastos:'los gastos de estructuración'};
+function vzPregunta(id,st){
+  const f=st.f, mon=f.moneda==='USD'?'dólares':'pesos';
+  switch(id){
+    case 'tipo': return '¿Qué vamos a cotizar: un leasing o un préstamo prendario?';
+    case 'cliente': return '¿Cómo se llama el cliente?';
+    case 'proveedor': return '¿Quién es el proveedor?';
+    case 'bien': return '¿Qué bien se va a financiar? Por ejemplo, una Sprinter.';
+    case 'cantidad': return '¿Cuántas unidades?';
+    case 'moneda': return '¿La operación es en pesos o en dólares?';
+    case 'iva': return '¿Qué IVA aplica? Veintiuno por ciento, diez coma cinco por ciento, o exento.';
+    case 'precio': return '¿Cuál es el precio sin IVA'+(Number(f.cantidad)>1?', por unidad':'')+'? Decímelo en '+mon+'.';
+    case 'ltv': return '¿Qué porcentaje del precio con IVA se financia?';
+    case 'tipoTasa': return '¿La tasa es variable o fija? Si es variable, decime directamente TAMAR o BADLAR.';
+    case 'ref': return '¿Tomamos de referencia la TAMAR o la BADLAR?';
+    case 'refValor': return st.manualRef[f.ref] ? '¿Qué valor de la '+vzRefNom(f.ref)+' querés usar? Decímelo en porcentaje.' : 'No pude traer el valor de la '+vzRefNom(f.ref)+' del Banco Central. Decime el valor actual, en porcentaje.';
+    case 'spread': return '¿Qué spread se le suma a la '+vzRefNom(f.ref)+'? Decime los puntos porcentuales. Si no hay, decí cero.';
+    case 'tnaFija': return '¿Cuál es la tasa nominal anual fija?';
+    case 'plazo': return '¿A qué plazo? Decímelo en meses o en años.';
+    case 'deposito': return '¿Qué porcentaje de depósito en garantía? Si no hay, decí cero.';
+    case 'opcion': return '¿Qué porcentaje de opción de compra? Si no hay, decí cero.';
+    case 'gastos': return '¿Qué porcentaje de gastos de estructuración? Si no hay, decí cero.';
+  }
+  return '';
+}
+function vzRefNom(r){ return r==='BADLAR'?'Badlar':'Tamar'; }
+const VZ_SOFT={ // alertas de “¿seguro?” para valores raros
+  precio:(v,f)=> (f.moneda==='USD'? v<1000 : v<100000) ? 'muy bajo' : (v>1e10?'muy alto':null),
+  ltv:(v)=> v<30?'muy bajo':null,
+  deposito:(v)=> v>40?'muy alto':null,
+  opcion:(v)=> v>50?'muy alto':null,
+  gastos:(v)=> v>15?'muy alto':null,
+  spread:(v)=> v>30?'muy alto':null,
+  tnaFija:(v)=> v>150?'muy alta':(v<5&&v>0?'muy baja':null),
+  refValor:(v)=> (v>150||v<5)?'raro':null,
+  cantidad:(v)=> v>50?'muy alta':null
+};
+/* Interpreta text para el paso id. Devuelve {ok, set:{campo:valor}, echo, soft?} o {ok:false,msg} */
+function vzParsePaso(id,text,st){
+  const f=st.f; let r;
+  switch(id){
+    case 'tipo': r=vzParseTipo(text); if(!r.ok) return r; return {ok:true,set:{tipo:r.value},echo:r.value==='LEASING'?'Leasing.':'Préstamo prendario.'};
+    case 'cliente': case 'proveedor': case 'bien': {
+      const s=vzLimpiaTexto(text,id); if(!s||!/[a-z0-9]/i.test(vzNorm(s))) return {ok:false,msg:'No escuché el nombre.'};
+      if(s.length>80) return {ok:false,msg:'Es muy largo, resumilo un poco.'};
+      return {ok:true,set:{[id]:s},echo:s+'.'}; }
+    case 'cantidad': r=vzParseCantidad(text); if(!r.ok) return r; return {ok:true,set:{cantidad:String(r.value)},echo:(r.value===1?'Una unidad.':vzPalabras(r.value,true)+' unidades.'),val:r.value};
+    case 'moneda': r=vzParseMoneda(text); if(!r.ok) return r; return {ok:true,set:{moneda:r.value},echo:r.value==='USD'?'En dólares.':'En pesos.'};
+    case 'iva': r=vzParseIva(text); if(!r.ok) return r;
+      return {ok:true,set:{iva:r.value===0?'0':(r.value===10.5?'0.105':'0.21')},echo:r.value===0?'Exento de IVA.':'IVA del '+vzPct(r.value)+'.'};
+    case 'precio': r=vzParseMonto(text,f.moneda); if(!r.ok) return r;
+      return {ok:true,set:{precio:vzNum2(r.value)},echo:'Precio sin IVA'+(Number(f.cantidad)>1?' por unidad':'')+': '+vzDinero(r.value,f.moneda)+'.',val:r.value};
+    case 'ltv': case 'deposito': case 'opcion': case 'gastos': {
+      r=vzParsePct(text,{cero:id!=='ltv'}); if(!r.ok) return r;
+      if(id==='ltv'){ if(!(r.value>0&&r.value<=100)) return {ok:false,msg:'El porcentaje a financiar tiene que ser mayor a cero y hasta cien.'}; }
+      else if(id==='opcion'){ if(!(r.value>=0&&r.value<100)) return {ok:false,msg:'La opción de compra tiene que ser menor a cien por ciento.'}; }
+      else if(!(r.value>=0&&r.value<=100)) return {ok:false,msg:'Tiene que ser un porcentaje entre cero y cien.'};
+      const nm={ltv:'Se financia el',deposito:'Depósito en garantía:',opcion:'Opción de compra:',gastos:'Gastos de estructuración:'}[id];
+      return {ok:true,set:{[id]:vzNum2(r.value)},echo:(r.value===0&&id!=='ltv')?nm.replace(/:$/,'')+': cero.':nm+' '+vzPct(r.value)+'.',val:r.value}; }
+    case 'tipoTasa': r=vzParseTipoTasa(text); if(!r.ok) return r;
+      return {ok:true,set:Object.assign({tipoTasa:r.value},r.ref?{ref:r.ref}:{}),ref:r.ref,echo:r.value==='Fija'?'Tasa fija.':'Tasa variable'+(r.ref?', referencia '+vzRefNom(r.ref):'')+'.'};
+    case 'ref': r=vzParseRef(text); if(!r.ok) return r; return {ok:true,set:{ref:r.value},ref:r.value,echo:vzRefNom(r.value)+'.'};
+    case 'refValor': case 'spread': case 'tnaFija': {
+      r=vzParsePct(text,{cero:id==='spread'}); if(!r.ok) return r;
+      if(id==='refValor' && !(r.value>0)) return {ok:false,msg:'El valor tiene que ser mayor a cero.'};
+      if(id==='tnaFija' && !(r.value>=0)) return {ok:false,msg:'No puede ser negativa.'};
+      const echo={refValor:'Valor de la '+vzRefNom(f.ref)+': '+vzPct(r.value)+'.',spread:r.value===0?'Sin spread.':'Spread de '+vzPctPuntos(r.value)+'.',tnaFija:'Tasa nominal anual fija: '+vzPct(r.value)+'.'}[id];
+      return {ok:true,set:id==='refValor'?{}:{[id]:vzNum2(r.value)},tasaManual:id==='refValor'?vzNum2(r.value):null,echo:echo,val:r.value}; }
+    case 'plazo': r=vzParsePlazo(text); if(!r.ok) return r;
+      return {ok:true,set:{plazo:String(r.value)},echo:'Plazo: '+vzMeses(r.value)+(r.value>=12&&r.value%12===0?', es decir '+vzPalabras(r.value/12,true)+(r.value===12?' año':' años'):'')+'.',ambiguo:r.ambiguo?r.value:null,val:r.value};
+  }
+  return {ok:false,msg:'No entendí.'};
+}
+function vzPctPuntos(x){ const ent=Math.abs(x-Math.round(x))<1e-9; return (ent?vzPalabras(Math.round(x),true):vzPct(x).replace(/ por ciento$/,''))+(x===1?' punto':' puntos'); }
+function vzNuevoDialogo(f,hooks){
+  const st={ f:f, done:{}, hist:[], pend:null, fails:0, fase:'preguntando', paso:null, manualRef:{}, refElegida:false,
+    refNecesitaValor:(ref)=>{ if(st.manualRef[ref]) return true; const t=hooks.tasa(ref); return !(t && Number(String(t.valor).replace(',','.'))>0); }, hooks:hooks };
+  return st;
+}
+function vzProximo(st){
+  const pasos=vzSteps(st.f,st);
+  for(const p of pasos){ if(!st.done[p]) return p; }
+  return null;
+}
+function vzResumenRevision(st){
+  const est=st.hooks.calc(); const f=st.f;
+  if(!est.ok) return {ok:false,errores:est.errores};
+  const v=est.v, r=est.r, mon=f.moneda, prend=v.tipo==='PRENDARIO', out=[];
+  out.push('Perfecto, ya tengo todos los datos. Antes de armar el PDF, verifico con vos.');
+  out.push((prend?'Préstamo prendario':'Leasing')+' para '+f.cliente+'. '+(v.cantidad===1?'Una unidad':vzPalabras(v.cantidad,true)+' unidades')+' de '+f.bien+', proveedor '+f.proveedor+', a '+vzDinero(v.precio,mon)+' sin IVA'+(v.cantidad>1?' cada una':'')+'.');
+  if(prend) out.push('Se financia el '+vzPct(v.ltv)+' del precio con IVA, o sea '+vzDinero(r.financiado,mon)+'.');
+  if(f.tipoTasa==='Variable') out.push('Tasa elegida: '+vzRefNom(f.ref)+' variable, que hoy es '+vzPct(v.refValor)+', más un spread de '+vzPctPuntos(v.spread)+'. La tasa nominal anual queda en '+vzPct(v.tna)+'.');
+  else out.push('Tasa elegida: fija, de '+vzPct(v.tna)+' nominal anual.');
+  out.push(v.iva===0?'IVA: exento.':'IVA elegido: '+vzPct(v.iva*100)+'.');
+  out.push('Plazo elegido: '+vzMeses(v.plazo)+(v.plazo>=12&&v.plazo%12===0?', es decir '+vzPalabras(v.plazo/12,true)+(v.plazo===12?' año':' años'):'')+'.');
+  out.push('Depósito en garantía: '+(v.dep===0?'sin depósito':vzPct(v.dep))+'. '+(prend?'':'Opción de compra: '+(v.opc===0?'sin opción':vzPct(v.opc))+'. ')+'Gastos de estructuración: '+(v.gas===0?'sin gastos':vzPct(v.gas))+'.');
+  if(prend){
+    out.push('El canon mensual sin IVA es de '+vzDinero(r.canon,mon)+'.');
+    if(v.iva===0) out.push('Como la operación es exenta de IVA, el canon con IVA es el mismo importe.');
+    if(v.iva>0) out.push('Con IVA, la primera cuota es de '+vzDinero(r.canonConIva,mon)+'. Ojo que el IVA se calcula sobre los intereses, así que el importe con IVA va bajando mes a mes.');
+  } else {
+    out.push('El canon mensual sin IVA es de '+vzDinero(r.canon,mon)+'.');
+    if(v.iva>0) out.push('Y el canon mensual con IVA es de '+vzDinero(r.canonConIva,mon)+'.');
+    else out.push('Como la operación es exenta de IVA, el canon con IVA es el mismo importe.');
+  }
+  out.push('¿Está todo bien? Decí sí para generar el PDF, o decime qué dato querés corregir.');
+  return {ok:true,say:out};
+}
+/* Une pasos: devuelve {say:[...]} con la siguiente pregunta o la revisión */
+function vzSiguiente(st,prefijo){
+  const say=(prefijo||[]).slice();
+  ['cliente','proveedor','bien','precio','plazo','deposito','gastos','opcion','spread','tnaFija','ltv'].forEach(k=>{ if(!String(st.f[k]==null?'':st.f[k]).trim()) st.done[k]=false; });
+  const p=vzProximo(st);
+  if(p){ st.paso=p; st.fase='preguntando'; st.fails=0; say.push(vzPregunta(p,st)); return {say:say}; }
+  const rv=vzResumenRevision(st);
+  if(!rv.ok){ // algo inconsistente: volver al primer dato inválido
+    st.fase='preguntando'; return {say:say.concat(['Hay un dato que no cierra: '+rv.errores[0]+' Lo corregimos.']),error:rv.errores}; }
+  st.paso=null; st.fase='revision'; st.fails=0;
+  return {say:say.concat(rv.say),revision:true};
+}
+function vzAplicar(st,id,res){
+  Object.assign(st.f,res.set||{});
+  if(res.tasaManual){ st.manualRef[st.f.ref]=true; st.hooks.setTasaManual(st.f.ref,res.tasaManual); }
+  st.done[id]=true; if(st.hist[st.hist.length-1]!==id) st.hist.push(id);
+  if(id==='tipo'){ // cambiar de tipo obliga a pedir lo propio del nuevo tipo
+    if(st.f.tipo==='PRENDARIO'){ if(!st.f.ltv) st.done.ltv=false; } else { if(!st.f.opcion) st.done.opcion=false; }
+  }
+  if(id==='tipoTasa'){
+    if(st.f.tipoTasa==='Fija'){ st.done.ref=false; st.done.refValor=false; st.done.spread=false; }
+    else { if(res.ref){ st.done.ref=true; } else { st.done.ref=false; } st.done.spread=false; st.done.refValor=false; }
+  }
+  if(id==='ref'){ st.done.refValor=false; }
+}
+function vzFuerzaPaso(st,id){ st.done[id]=false; }
+/* Punto de entrada: recibe alternativas del reconocedor (array de strings). Devuelve {say, fetch?, generar?, cancelar?, pausar?, reiniciar?} */
+function vzResponder(st,alts){
+  alts=(alts||[]).map(a=>String(a||'').trim()).filter(Boolean);
+  if(!alts.length) return {say:['No escuché nada.'],reask:true};
+  const text=alts[0];
+  const libre=(st.fase==='preguntando' && ['cliente','proveedor','bien'].indexOf(st.paso)>=0);
+  const cmd=vzComando(text,libre);
+  if(cmd){
+    if(cmd.cmd==='cancel') return {say:['Listo, cancelo el asistente. Los datos quedaron cargados en pantalla.'],cancelar:true};
+    if(cmd.cmd==='pause') return {say:['Pausa. Tocá continuar cuando quieras seguir.'],pausar:true};
+    if(cmd.cmd==='repeat') return vzRepetir(st);
+    if(cmd.cmd==='back'){
+      if(st.fase==='revision'){ const last=vzSteps(st.f,st).slice(-1)[0]; vzFuerzaPaso(st,last); st.hist=st.hist.filter(x=>x!==last); return vzSiguiente(st,['Dale, volvemos.']); }
+      if(st.pend){ st.pend=null; }
+      const prev=st.hist.pop();
+      if(!prev || prev===st.paso && !st.hist.length){ return {say:['Estamos en la primera pregunta.',vzPregunta(st.paso||'tipo',st)],reask:true}; }
+      vzFuerzaPaso(st,prev); return vzSiguiente(st,['Dale, volvemos.']);
+    }
+    if(cmd.cmd==='fix'){
+      if(!cmd.field){ if(st.fase!=='cual') st.faseAntes=st.fase; st.fase='cual'; return {say:['¿Qué dato querés corregir? Por ejemplo: plazo, IVA, precio, cliente.'],reask:true}; }
+      return vzCorregir(st,cmd.field,alts);
+    }
+  }
+  // confirmación pendiente de valor raro / plazo ambiguo
+  if(st.pend){
+    const p=st.pend;
+    if(p.tipo==='soft'){
+      const yn=vzSiNo(text);
+      if(yn==='si'){ st.pend=null; vzAplicar(st,p.id,p.res); return vzSiguiente(st,['Anotado.']); }
+      if(yn==='no'){ st.pend=null; return {say:['Está bien, lo repetimos.',vzPregunta(p.id,st)],reask:true}; }
+      return {say:['No te entendí. '+p.pregunta],reask:true};
+    }
+    if(p.tipo==='plazo'){
+      const tk=vzToks(text);
+      if(tk.some(t=>/^mes/.test(t))){ st.pend=null; const res=p.res; res.set.plazo=String(p.n); res.echo='Plazo: '+vzMeses(p.n)+'.'; vzAplicar(st,'plazo',res); return vzSiguiente(st,[res.echo]); }
+      if(tk.some(t=>/^an/.test(t))){ st.pend=null; const m=p.n*12; if(m>120) return {say:['Eso serían '+vzMeses(m)+', y el máximo es ciento veinte meses.',vzPregunta('plazo',st)],reask:true};
+        const res=p.res; res.set.plazo=String(m); res.echo='Plazo: '+vzMeses(m)+', es decir '+vzPalabras(p.n,true)+(p.n===1?' año':' años')+'.'; vzAplicar(st,'plazo',res); return vzSiguiente(st,[res.echo]); }
+      // si responde con otro plazo completo, lo toma
+      st.pend=null;
+    }
+  }
+  if(st.fase==='otra'){
+    const yn=vzSiNo(text);
+    if(yn==='si') return {say:['Dale, empecemos otra cotización.'],nueva:true};
+    if(yn==='no') return {say:['Perfecto. Cuando quieras armar otra, tocá el botón de voz. ¡Hasta luego!'],fin:true};
+    return {say:['No te entendí. ¿Querés armar otra cotización? Decí sí o no.'],reask:true};
+  }
+  if(st.fase==='cual'){
+    const campo=vzCampo(text);
+    if(campo) return vzCorregir(st,campo,alts);
+    if(vzSiNo(text)==='no'){ st.fase=st.faseAntes||'revision'; st.faseAntes=null; return {say:st.fase==='revision'?['Está bien. Entonces no genero nada por ahora. Decí sí cuando quieras generar el PDF.']:['Está bien, seguimos.',vzPregunta(st.paso||'tipo',st)],reask:true}; }
+    return {say:['No entendí cuál. Decime, por ejemplo: plazo, IVA, precio o tasa.'],reask:true};
+  }
+  if(st.fase==='revision'){
+    const yn=vzSiNo(text);
+    if(yn==='si'){ const e=st.hooks.calc(); if(!e.ok) return vzSiguiente(st,['Todavía falta un dato.']); return {say:['Perfecto, genero el PDF.'],generar:true}; }
+    if(yn==='no'){ st.faseAntes='revision'; st.fase='cual'; return {say:['¿Qué dato querés corregir?'],reask:true}; }
+    const campo=vzCampo(text);
+    if(campo) return vzCorregir(st,campo,alts);
+    return {say:['No te entendí. Decí sí para generar el PDF, o decime qué dato querés corregir.'],reask:true};
+  }
+  // ---- respuesta normal al paso actual (probamos todas las alternativas) ----
+  const id=st.paso; if(!id) return {say:['Ya terminamos. Decí sí para generar el PDF.'],reask:true};
+  // un "no," inicial en pasos que no son sí/no no cambia nada, se ignora
+  let res=null, first=null;
+  for(const a of alts){
+    const vars=[a]; if(['cliente','proveedor','bien'].indexOf(id)<0){ const t=a.replace(/^\s*no[\s,.]+(?=\S)/i,''); if(t!==a) vars.push(t); }
+    for(const t of vars){ const r=vzParsePaso(id,t,st); if(!first) first=r; if(r.ok){ res=r; break; } }
+    if(res) break;
+  }
+  if(!res){
+    st.fails++;
+    const extra=st.fails>=3?' Si querés, escribila en el cuadro de texto.':'';
+    return {say:[first.msg+' '+vzPregunta(id,st)+extra],reask:true};
+  }
+  // plazo ambiguo
+  if(id==='plazo' && res.ambiguo){ st.pend={tipo:'plazo',id:id,n:res.ambiguo,res:res}; return {say:['¿'+vzPalabras(res.ambiguo,true)+' meses o '+vzPalabras(res.ambiguo,true)+(res.ambiguo===1?' año':' años')+'?'],reask:true}; }
+  // valores raros
+  const sf=VZ_SOFT[id]&&res.val!==undefined?VZ_SOFT[id](res.val,st.f):null;
+  if(sf){ const q='Entendí '+(id==='precio'?vzDinero(res.val,st.f.moneda):id==='cantidad'?vzPalabras(res.val,true)+' unidades':vzPct(res.val))+', que es un valor poco común. ¿Es correcto?';
+    st.pend={tipo:'soft',id:id,res:res,pregunta:q}; return {say:[q],reask:true}; }
+  vzAplicar(st,id,res);
+  if(id==='tipoTasa' && st.f.tipoTasa==='Variable' && res.ref){ st.refElegida=true; return {say:[res.echo],fetch:st.f.ref,esperarTasa:true}; }
+  if(id==='ref'){ return {say:[res.echo],fetch:st.f.ref,esperarTasa:true}; }
+  return vzSiguiente(st,[res.echo]);
+}
+/* tras intentar traer la tasa */
+function vzTasaLista(st){
+  const t=st.hooks.tasa(st.f.ref), ok=t && Number(String(t.valor).replace(',','.'))>0;
+  if(ok){
+    const v=Number(String(t.valor).replace(',','.')), fe=t.fecha?vzDiaTxt(t.fecha):'';
+    let viejo=false; try{ if(t.fecha && st.hooks.hoy){ viejo=(Date.parse(st.hooks.hoy())-Date.parse(t.fecha))/864e5>7; } }catch(e){}
+    return vzSiguiente(st,['La '+vzRefNom(st.f.ref)+' vigente es '+vzPct(v)+(fe?', al '+fe:'')+'.'].concat(viejo?['Ojo, ese dato es de hace más de una semana. Si querés usar otro valor, decí corregir valor de la '+vzRefNom(st.f.ref)+'.']:[]));
+  }
+  return vzSiguiente(st,[]);   // refNecesitaValor ⇒ pedirá el valor a mano
+}
+function vzRepetir(st){
+  if(st.fase==='revision'){ const rv=vzResumenRevision(st); return rv.ok?{say:rv.say,reask:true}:{say:['Hay datos incompletos.'],reask:true}; }
+  if(st.pend && st.pend.pregunta) return {say:[st.pend.pregunta],reask:true};
+  if(st.fase==='cual') return {say:['¿Qué dato querés corregir?'],reask:true};
+  if(st.fase==='otra') return {say:['¿Querés armar otra cotización? Decí sí o no.'],reask:true};
+  return {say:[vzPregunta(st.paso||'tipo',st)],reask:true};
+}
+function vzCorregir(st,campo,alts){
+  const f=st.f;
+  if(campo==='ref' && f.tipoTasa!=='Variable') campo='tipoTasa';
+  if(campo==='refValor'){ if(f.tipoTasa!=='Variable') return {say:['La tasa es fija, no tiene referencia. Podés corregir la tasa fija.'],reask:true}; st.manualRef[f.ref]=true; }
+  if(campo==='ref'||campo==='spread'||campo==='refValor'){ if(f.tipoTasa!=='Variable') return {say:['La tasa es fija. Si querés, cambiamos el tipo de tasa.'],reask:true}; }
+  if(campo==='tnaFija' && f.tipoTasa!=='Variable') {}
+  if(campo==='tnaFija' && f.tipoTasa==='Variable') return {say:['La tasa es variable. Podés corregir el spread o la referencia.'],reask:true};
+  if(campo==='ltv' && f.tipo!=='PRENDARIO') return {say:['El porcentaje a financiar solo se usa en el préstamo prendario.'],reask:true};
+  if(campo==='opcion' && f.tipo==='PRENDARIO') return {say:['La opción de compra solo se usa en el leasing.'],reask:true};
+  // ¿vino el valor nuevo en la misma frase? ("cambiar el plazo a 48 meses")
+  const resto=alts.map(a=>{
+    let t=a.replace(/^\s*(?:corregir|corregi|corrige|corregime|cambiar|cambia|cambiame|cambiemos|modificar|modifica|modificame|editar|edita|quiero (?:cambiar|corregir|modificar)|necesito (?:cambiar|corregir)|me equivoque en|podes (?:cambiar|corregir)|podrias cambiar)\s+/i,'');
+    if(['cliente','proveedor','bien'].indexOf(campo)>=0) t=t.replace(/^(?:el|la|los|las|del|de la)?\s*(?:cliente|proveedor|bien|producto|equipo|veh[ií]culo|modelo|titular|vendedor|comprador)\s*(?:a|por|es|:|ahora es|seria|sería)?\s*/i,'');
+    return t;
+  });
+  const t0=st.paso;
+  st.done[campo]=false; st.hist=st.hist.filter(x=>x!==campo);
+  let res=null;
+  const rawLabelOnly=/^(?:el|la|los|las|del|de la)?\s*(?:cliente|proveedor|bien|producto|equipo|veh[ií]culo|modelo|titular|plazo|iva|precio|moneda|tipo de tasa|tasa|tamar|badlar|spread|cantidad|unidades?|dep[oó]sito|garant[ií]a|gastos?|opci[oó]n de compra|opci[oó]n|tna|valor)?\s*$/i;
+  for(const t of resto){
+    if(!t || rawLabelOnly.test(t.replace(/[.,]$/,''))) continue;
+    // sacamos la palabra del campo para que no confunda al parser numérico
+    const r=vzParsePaso(campo,t,st); if(r.ok){ res=r; break; }
+  }
+  if(res && !(VZ_SOFT[campo]&&res.val!==undefined&&VZ_SOFT[campo](res.val,st.f))){
+    vzAplicar(st,campo,res);
+    if((campo==='ref'||(campo==='tipoTasa'&&res.ref))) return {say:[res.echo],fetch:st.f.ref,esperarTasa:true};
+    return vzSiguiente(st,['Corregido. '+res.echo]);
+  }
+  if(campo==='tipoTasa' || campo==='ref'){}
+  st.paso=campo; st.fase='preguntando'; st.fails=0;
+  return {say:['Dale, corregimos '+VZ_NOMBRE[campo]+'.',vzPregunta(campo,st)],reask:true};
+}
+
+
+/* ===== Asistente de voz: pantalla, micrófono y voz ===== */
+function vzS(){
+  if(!state.vz) state.vz={ on:false, estado:'idle', pregunta:'', oido:'', log:[], draft:'', mute:false, abierto:false, aviso:'', modoTexto:false, silencios:0, intro:true };
+  return state.vz;
+}
+const VZ_SR = (typeof window!=='undefined') && (window.SpeechRecognition||window.webkitSpeechRecognition);
+let vzEng=null, vzRec=null, vzRun=0, vzUtter=null, vzPeriodo=null;
+function vzSoporteVoz(){ return !!VZ_SR; }
+function vzHooks(){
+  return { tasa:(r)=>state.cot.tasas[r], hoy:()=>cotHoyISO(), calc:()=>cotEstado(),
+    setTasaManual:(r,v)=>{ state.cot.tasas[r]={valor:v,fecha:cotHoyISO(),fuente:'manual'}; } };
+}
+function vzHablable(t){
+  return String(t).replace(/\bTAMAR\b/g,'Tamar').replace(/\bBADLAR\b/g,'Badlar').replace(/\bS\.A\.S\./g,'S A S').replace(/\bS\.R\.L\./g,'S R L').replace(/\bS\.A\./g,'S A').replace(/\bUSD\b/g,'dólares').replace(/\$/g,' pesos ').replace(/\s+/g,' ').trim();
+}
+function vzTrozos(t){
+  const partes=String(t).split(/(?<=[.!?:])\s+/), out=[]; let cur='';
+  partes.forEach(p=>{ if((cur+' '+p).length>170 && cur){ out.push(cur); cur=p; } else cur=cur?cur+' '+p:p; });
+  if(cur) out.push(cur);
+  const fin=[]; out.forEach(o=>{ if(o.length<=200) fin.push(o); else { let r=o; while(r.length>200){ let k=r.lastIndexOf(',',190); if(k<60) k=r.lastIndexOf(' ',190); if(k<20) k=190; fin.push(r.slice(0,k+1)); r=r.slice(k+1).trim(); } if(r) fin.push(r); } });
+  return fin;
+}
+function vzHablarUno(texto,mi){
+  return new Promise(res=>{
+    const S=vzS();
+    if(S.mute || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined'){ setTimeout(res,0); return; }
+    let hecho=false; const fin=()=>{ if(hecho) return; hecho=true; clearTimeout(wd); res(); };
+    const wd=setTimeout(fin, 3500+texto.length*110);
+    try{
+      const u=new SpeechSynthesisUtterance(vzHablable(texto)); u.lang='es-AR'; u.rate=1.02;
+      const v=pickSpanishVoice(); if(v) u.voice=v;
+      u.onend=fin; u.onerror=fin; vzUtter=u;
+      window.speechSynthesis.speak(u);
+    }catch(e){ fin(); }
+  });
+}
+async function vzDecir(frases,mi){
+  const S=vzS();
+  for(const fr of frases){
+    if(mi!==vzRun) return false;
+    S.log.push({quien:'coti',txt:fr}); if(S.log.length>60) S.log.shift();
+    S.pregunta=fr; S.estado='hablando'; vzPanel();
+    for(const tr of vzTrozos(fr)){ if(mi!==vzRun) return false; if(S.saltando) break; await vzHablarUno(tr,mi); }
+  }
+  return mi===vzRun;
+}
+function vzCortarVoz(){ try{ if('speechSynthesis' in window) window.speechSynthesis.cancel(); }catch(e){} }
+function vzCortarMic(){ try{ if(vzRec){ vzRec.onresult=vzRec.onerror=vzRec.onend=null; vzRec.abort(); } }catch(e){} vzRec=null; }
+function vzPanel(){
+  const el=document.getElementById('vz-panel'); if(el) el.innerHTML=vzPanelHtml();
+  const box=document.getElementById('vz-log'); if(box) box.scrollTop=box.scrollHeight;
+}
+function vzEstadoTxt(S){
+  return {idle:'',hablando:'🔊 Hablando…',escuchando:'🎤 Escuchando… hablá ahora',procesando:'⏳ Pensando…',pausa:'⏸ En pausa',texto:'⌨ Respondé escribiendo'}[S.estado]||'';
+}
+function vzPanelHtml(){
+  const S=vzS();
+  if(!S.on){
+    const soporte=vzSoporteVoz();
+    return '<div class="card pad" style="margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">'+
+      '<button class="btn btn-primary" style="width:auto;padding:10px 18px;" data-action="vz-iniciar">🎙 Armar cotización por voz</button>'+
+      '<span style="font-size:12px;color:var(--muted);flex:1;min-width:220px;">Coti te hace las preguntas hablando y vos respondés con la voz. Antes de generar el PDF te lee la tasa, el IVA, el plazo y el canon.'+
+      (soporte?'':' <b>Este navegador no tiene reconocimiento de voz</b>: usá Chrome o Edge para hablar; igual podés responder escribiendo.')+'</span>'+
+      (S.aviso?'<div style="flex-basis:100%;font-size:12px;color:var(--muted);">'+esc(S.aviso)+'</div>':'')+'</div>';
+  }
+  const bt=(a,l,extra)=>'<button class="btn" style="width:auto;padding:6px 12px;font-size:12px;" data-action="'+a+'" '+(extra||'')+'>'+l+'</button>';
+  const hist=S.log.slice(-8).map(l=>'<div style="margin:3px 0;'+(l.quien==='vos'?'text-align:right;color:var(--muted);':'')+'">'+(l.quien==='vos'?'🧑 ':'🤖 ')+esc(l.txt)+'</div>').join('');
+  return '<div class="card pad" style="margin-bottom:12px;border:1px solid var(--accent, #3b82f6);">'+
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">'+
+      '<span class="stat-label" style="margin:0;">Asistente de voz · Coti</span>'+
+      '<span id="vz-estado" style="font-size:12px;font-weight:600;">'+esc(vzEstadoTxt(S))+'</span>'+
+      '<span style="flex:1"></span>'+
+      (S.estado==='pausa'?bt('vz-continuar','▶ Continuar'):bt('vz-pausa','⏸ Pausa'))+
+      bt('vz-repetir','↻ Repetir')+bt('vz-saltar','⏭ Responder ya')+
+      bt('vz-mute',S.mute?'🔇 Voz apagada':'🔊 Voz encendida')+
+      bt('vz-detener','✖ Terminar')+
+    '</div>'+
+    '<div id="vz-pregunta" style="font-size:16px;font-weight:600;line-height:1.35;margin:6px 0;">'+esc(S.pregunta)+'</div>'+
+    (S.oido?'<div id="vz-oido" style="font-size:12px;color:var(--muted);margin-bottom:6px;">Te escuché: “'+esc(S.oido)+'”</div>':'')+
+    '<div style="display:flex;gap:8px;margin:8px 0;"><input id="vz-texto" type="text" autocomplete="off" placeholder="o escribí tu respuesta y apretá Enter" value="'+esc(S.draft)+'" style="flex:1;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;" />'+
+      '<button class="btn btn-primary" style="width:auto;padding:8px 14px;" data-action="vz-enviar">Enviar</button></div>'+
+    '<div style="font-size:11px;color:var(--muted);">Podés decir en cualquier momento: <b>repetir</b>, <b>volver</b>, <b>corregir el plazo</b> (o el dato que sea), <b>pausa</b> o <b>cancelar</b>.</div>'+
+    '<div id="vz-log" style="max-height:150px;overflow:auto;font-size:12px;margin-top:8px;border-top:1px dashed var(--border2);padding-top:6px;">'+hist+'</div>'+
+  '</div>';
+}
+/* ---- arranque / cierre ---- */
+function vzFormConDatos(f){ return !!(String(f.cliente||'').trim()||String(f.proveedor||'').trim()||String(f.bien||'').trim()||String(f.precio||'').trim()||String(f.plazo||'').trim()); }
+async function vzIniciar(){
+  const S=vzS(), c=state.cot;
+  if(S.on) return;
+  if(vzFormConDatos(c.f)){ let sigue=true; try{ sigue=window.confirm('Ya hay datos cargados en el cotizador. El asistente va a empezar una cotización nueva y los va a borrar. ¿Seguimos?'); }catch(e){} if(!sigue) return; }
+  c.f=cotBlank(); c.lastHash=''; c.lastRef=null; state.error=''; state.notice='';
+  vzCortarVoz(); vzCortarMic();
+  const mi=++vzRun;
+  S.on=true; S.log=[]; S.oido=''; S.draft=''; S.aviso=''; S.silencios=0; S.modoTexto=false; S.estado='hablando'; S.abierto=true;
+  vzEng=vzNuevoDialogo(c.f,vzHooks());
+  cotRender();
+  try{ cotCargarTasas(false); }catch(e){}
+  const r=vzSiguiente(vzEng,[]);
+  const intro=['Hola, soy Coti. Te voy a hacer unas preguntas y vas a ver la cotización armándose en pantalla. Podés decir repetir, volver, corregir, pausa o cancelar.'];
+  await vzProcesar({say:intro.concat(r.say)},mi);
+}
+function vzParar(msg){
+  const S=vzS(); vzRun++; vzCortarVoz(); vzCortarMic();
+  S.on=false; S.estado='idle'; S.oido=''; if(msg) S.aviso=msg; vzEng=null; cotRender();
+}
+async function vzEsperarTasa(ref){
+  const c=state.cot, ok=()=>{ const t=c.tasas[ref]; return t && Number(String(t.valor).replace(',','.'))>0; };
+  const esperar=async(ms)=>{ const t0=Date.now(); while(c.tasaLoading && Date.now()-t0<ms) await new Promise(r=>setTimeout(r,150)); };
+  await esperar(15000);
+  if(!ok() || c.ultimoFetch!==cotHoyISO()){ try{ await cotCargarTasas(true); }catch(e){} await esperar(15000); }
+}
+/* procesa un resultado del motor: lo dice, ejecuta acciones y vuelve a escuchar */
+async function vzProcesar(res,mi){
+  const S=vzS(); if(mi!==vzRun) return;
+  cotRender();                                    // el formulario se actualiza con lo recién entendido
+  if(res.fetch){
+    const okDecir=await vzDecir(res.say,mi); if(!okDecir) return;
+    S.estado='procesando'; S.pregunta='Busco el valor de la '+res.fetch+' en el Banco Central…'; vzPanel();
+    await vzDecir(['Busco el valor vigente en el Banco Central.'],mi);
+    await vzEsperarTasa(res.fetch); if(mi!==vzRun) return;
+    const r2=vzTasaLista(vzEng); cotRender(); return vzProcesar(r2,mi);
+  }
+  const okDecir=await vzDecir(res.say||[],mi); if(!okDecir) return;
+  if(res.generar){ return vzGenerarPdf(mi); }
+  if(res.cancelar){ vzParar('Asistente cancelado. Los datos quedaron cargados en el formulario.'); return; }
+  if(res.fin){ vzParar('Listo. Cuando quieras armar otra cotización por voz, tocá el botón.'); return; }
+  if(res.nueva){
+    const c=state.cot; c.f=cotBlank(); c.lastHash=''; c.lastRef=null; vzEng=vzNuevoDialogo(c.f,vzHooks()); cotRender();
+    return vzProcesar(vzSiguiente(vzEng,[]),mi);
+  }
+  if(res.pausar){ S.estado='pausa'; vzPanel(); return; }
+  vzEscuchar(mi);
+}
+async function vzGenerarPdf(mi){
+  const S=vzS(); S.estado='procesando'; S.pregunta='Armando el PDF…'; vzPanel();
+  state.error=''; state.notice='';
+  let ref=null; try{ ref=await cotDescargar(); }catch(e){ state.error='No pude armar el PDF: '+((e&&e.message)||e); }
+  if(mi!==vzRun) return;
+  if(state.error){
+    const err=state.error; cotRender();
+    vzEng.fase='revision';
+    return vzProcesar({say:['No pude armar el PDF. '+err.slice(0,160)+' Decí sí para intentar de nuevo, o corregí un dato.']},mi);
+  }
+  vzEng.fase='otra';
+  const txtRef=(ref!=null&&/^\d+$/.test(String(ref)))?'número '+vzPalabras(Number(ref),false):'';
+  return vzProcesar({say:['Listo. Armé el PDF de la cotización'+(txtRef?' '+txtRef:'')+' y se descargó en tu equipo. Quedó guardada en el historial.','¿Querés armar otra cotización?']},mi);
+}
+/* ---- micrófono ---- */
+function vzEscuchar(mi){
+  const S=vzS(); if(mi!==vzRun||!S.on) return;
+  vzCortarMic();
+  S.saltando=false;
+  if(!VZ_SR || S.modoTexto){ S.estado='texto'; vzPanel(); const i=document.getElementById('vz-texto'); if(i) i.focus(); return; }
+  let rec; try{ rec=new VZ_SR(); }catch(e){ S.modoTexto=true; S.aviso='No pude abrir el micrófono.'; return vzEscuchar(mi); }
+  vzRec=rec; rec.lang='es-AR'; rec.continuous=false; rec.interimResults=false; rec.maxAlternatives=4;
+  let recibido=false;
+  rec.onresult=(e)=>{
+    if(recibido||mi!==vzRun) return; recibido=true;
+    const alts=[]; try{ const r0=e.results[e.results.length-1]; for(let i=0;i<r0.length;i++) alts.push(r0[i].transcript); }catch(x){}
+    S.silencios=0; vzOir(alts,mi);
+  };
+  rec.onerror=(e)=>{
+    if(mi!==vzRun) return; const er=e&&e.error;
+    if(er==='no-speech'||er==='aborted') return;               // lo maneja onend
+    recibido=true;
+    if(er==='not-allowed'||er==='service-not-allowed'){ S.modoTexto=true; S.aviso='El navegador no me deja usar el micrófono. Habilitalo desde el candado de la barra de direcciones, o respondé escribiendo.'; }
+    else if(er==='audio-capture'){ S.modoTexto=true; S.aviso='No encuentro ningún micrófono. Podés responder escribiendo.'; }
+    else if(er==='network'){ S.modoTexto=true; S.aviso='El reconocimiento de voz necesita conexión a internet. Podés responder escribiendo.'; }
+    else { S.modoTexto=true; S.aviso='Falló el reconocimiento de voz ('+er+'). Podés responder escribiendo.'; }
+    vzDecir([S.aviso],mi).then(()=>vzEscuchar(mi));
+  };
+  rec.onend=()=>{
+    if(mi!==vzRun||recibido||vzRec!==rec) return;
+    S.silencios++;
+    if(S.silencios===3||S.silencios===6){ vzDecir(['Sigo acá. Respondé cuando quieras, o escribí en el cuadro.'],mi).then(()=>{ if(S.silencios>=6){ S.estado='pausa'; vzPanel(); } else vzEscuchar(mi); }); }
+    else vzEscuchar(mi);
+  };
+  S.estado='escuchando'; vzPanel();
+  try{ rec.start(); }catch(e){ setTimeout(()=>vzEscuchar(mi),400); }
+}
+async function vzOir(alts,mi){
+  const S=vzS(); if(mi!==vzRun) return;
+  vzCortarMic(); vzCortarVoz();
+  alts=(alts||[]).map(a=>String(a||'').trim()).filter(Boolean);
+  if(!alts.length) return vzEscuchar(mi);
+  S.oido=alts[0]; S.log.push({quien:'vos',txt:alts[0]}); S.estado='procesando'; S.draft=''; vzPanel();
+  let res;
+  try{ res=vzResponder(vzEng,alts); }
+  catch(e){ console.error(e); res={say:['Tuve un problema entendiendo eso. Probemos de nuevo.'].concat([vzPregunta(vzEng.paso||'tipo',vzEng)]),reask:true}; }
+  return vzProcesar(res,mi);
+}
+function vzEnviarTexto(){
+  const S=vzS(), el=document.getElementById('vz-texto'); const t=el?el.value.trim():S.draft.trim();
+  if(!S.on||!t) return; if(el) el.value=''; S.draft='';
+  const mi=++vzRun; vzCortarVoz(); vzCortarMic(); vzOir([t],mi);
+}
+function vzOnClick(a){
+  const S=vzS();
+  if(a==='vz-iniciar') vzIniciar();
+  else if(a==='vz-detener') vzParar('Asistente terminado. Los datos quedaron cargados en el formulario.');
+  else if(a==='vz-enviar') vzEnviarTexto();
+  else if(a==='vz-mute'){ S.mute=!S.mute; if(S.mute) vzCortarVoz(); vzPanel(); }
+  else if(a==='vz-pausa'){ vzRun++; vzCortarVoz(); vzCortarMic(); S.estado='pausa'; vzPanel(); }
+  else if(a==='vz-continuar'||a==='vz-repetir'){
+    if(!S.on||!vzEng) return; const mi=++vzRun; vzCortarVoz(); vzCortarMic(); S.silencios=0;
+    vzProcesar(vzRepetir(vzEng),mi);
+  }
+  else if(a==='vz-saltar'){ if(!S.on) return; S.saltando=true; vzCortarVoz(); }
+}
+function vzOnKeydown(e){ if(e.target&&e.target.id==='vz-texto'&&e.key==='Enter'){ e.preventDefault(); vzEnviarTexto(); } }
+
+// ============ FIN ASISTENTE DE VOZ ============
 const state = {
   booting:true, configOk:false, dbOk:true, authed:false,
   view:'upload',
@@ -4084,6 +4891,7 @@ function attachEvents(){
   document.body.addEventListener('keydown', onBodyKeydown);
 }
 function onBodyKeydown(e){
+  vzOnKeydown(e);
   if(e.target && e.target.id==='chat-input' && e.key==='Enter'){ handleChatSend(); }
 }
 function onRootClick(e){
@@ -4092,6 +4900,7 @@ function onRootClick(e){
   const action = btn.dataset.action;
   if(action.indexOf('cg-')===0){ cgOnClick(action, btn); return; }
   if(action.indexOf('cot-')===0){ cotOnClick(action, btn); return; }
+  if(action.indexOf('vz-')===0){ vzOnClick(action); return; }
   if(action==='goto'){
     state.view = btn.dataset.view;
     if(state.view==='mora-general' && !state.generalLoaded){ loadGeneralHistory(); return; }
@@ -4187,6 +4996,7 @@ function onRootClick(e){
 }
 function onRootInput(e){
   if(cgOnInput(e)) return;
+  if(e.target && e.target.id==='vz-texto'){ vzS().draft=e.target.value; return; }
   if(cotOnInput(e)) return;
   if(e.target.id==='search-input'){ state.search = e.target.value; refreshDashboardList(); }
   else if(e.target.id==='cutoff-date'){ state.cutoffDate = e.target.value; }
