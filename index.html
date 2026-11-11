@@ -2255,7 +2255,7 @@ function vzPanelHtml(){
       '<span style="flex:1"></span>'+
       (S.estado==='pausa'?bt('vz-continuar','▶ Continuar'):bt('vz-pausa','⏸ Pausa'))+
       bt('vz-repetir','↻ Repetir')+bt('vz-saltar','⏭ Responder ya')+
-      bt('vz-mute',S.mute?'🔇 Voz apagada':'🔊 Voz encendida')+
+      ((S.modoTexto||S.motivo==='network')&&VZ_SR?bt('vz-mic','🎤 Reintentar micrófono'):'')+bt('vz-mute',S.mute?'🔇 Voz apagada':'🔊 Voz encendida')+
       bt('vz-detener','✖ Terminar')+
     '</div>'+
     '<div id="vz-pregunta" style="font-size:16px;font-weight:600;line-height:1.35;margin:6px 0;">'+esc(S.pregunta)+'</div>'+
@@ -2334,6 +2334,7 @@ function vzEscuchar(mi){
   const S=vzS(); if(mi!==vzRun||!S.on) return;
   vzCortarMic();
   S.saltando=false;
+  if(S.modoTexto && S.motivo==='network' && VZ_SR && !S.probandoMic){ S.probandoMic=true; S.modoTexto=false; S.redErr=3; }   // en cada pregunta damos otra chance al micrófono
   if(!VZ_SR || S.modoTexto){ S.estado='texto'; vzPanel(); const i=document.getElementById('vz-texto'); if(i) i.focus(); return; }
   let rec; try{ rec=new VZ_SR(); }catch(e){ S.modoTexto=true; S.aviso='No pude abrir el micrófono.'; return vzEscuchar(mi); }
   vzRec=rec; rec.lang='es-AR'; rec.continuous=false; rec.interimResults=false; rec.maxAlternatives=4;
@@ -2341,7 +2342,7 @@ function vzEscuchar(mi){
   rec.onresult=(e)=>{
     if(recibido||mi!==vzRun) return; recibido=true;
     const alts=[]; try{ const r0=e.results[e.results.length-1]; for(let i=0;i<r0.length;i++) alts.push(r0[i].transcript); }catch(x){}
-    S.silencios=0; vzOir(alts,mi);
+    S.silencios=0; S.redErr=0; vzOir(alts,mi);
   };
   rec.onerror=(e)=>{
     if(mi!==vzRun) return; const er=e&&e.error;
@@ -2349,7 +2350,11 @@ function vzEscuchar(mi){
     recibido=true;
     if(er==='not-allowed'||er==='service-not-allowed'){ S.modoTexto=true; S.aviso='El navegador no me deja usar el micrófono. Habilitalo desde el candado de la barra de direcciones, o respondé escribiendo.'; }
     else if(er==='audio-capture'){ S.modoTexto=true; S.aviso='No encuentro ningún micrófono. Podés responder escribiendo.'; }
-    else if(er==='network'){ S.modoTexto=true; S.aviso='El reconocimiento de voz necesita conexión a internet. Podés responder escribiendo.'; }
+    else if(er==='network'){
+      // el servicio de voz del navegador a veces falla un instante aunque haya internet: reintentamos solos
+      S.redErr=(S.redErr||0)+1;
+      if(S.redErr<=4){ recibido=true; setTimeout(()=>vzEscuchar(mi),600*S.redErr); return; }
+      S.modoTexto=true; S.motivo='network'; S.redErr=0; S.aviso='El servicio de voz del navegador no responde en este momento. Podés escribir la respuesta, o tocar "Reintentar micrófono".'; }
     else { S.modoTexto=true; S.aviso='Falló el reconocimiento de voz ('+er+'). Podés responder escribiendo.'; }
     vzDecir([S.aviso],mi).then(()=>vzEscuchar(mi));
   };
@@ -2359,7 +2364,7 @@ function vzEscuchar(mi){
     if(S.silencios===3||S.silencios===6){ vzDecir(['Sigo acá. Respondé cuando quieras, o escribí en el cuadro.'],mi).then(()=>{ if(S.silencios>=6){ S.estado='pausa'; vzPanel(); } else vzEscuchar(mi); }); }
     else vzEscuchar(mi);
   };
-  S.estado='escuchando'; vzPanel();
+  S.probandoMic=false; S.estado='escuchando'; vzPanel();
   try{ rec.start(); }catch(e){ setTimeout(()=>vzEscuchar(mi),400); }
 }
 async function vzOir(alts,mi){
@@ -2389,6 +2394,7 @@ function vzOnClick(a){
     if(!S.on||!vzEng) return; const mi=++vzRun; vzCortarVoz(); vzCortarMic(); S.silencios=0;
     vzProcesar(vzRepetir(vzEng),mi);
   }
+  else if(a==='vz-mic'){ if(!S.on) return; const mi=++vzRun; vzCortarVoz(); vzCortarMic(); S.modoTexto=false; S.motivo=''; S.redErr=0; S.aviso=''; vzEscuchar(mi); }
   else if(a==='vz-saltar'){ if(!S.on) return; S.saltando=true; vzCortarVoz(); }
 }
 function vzOnKeydown(e){ if(e.target&&e.target.id==='vz-texto'&&e.key==='Enter'){ e.preventDefault(); vzEnviarTexto(); } }
@@ -4573,6 +4579,7 @@ function validarContrato(f){
   if(!String(f.cliente||'').trim()) return 'Completá el nombre del cliente.';
   if(f.fechaInicio && f.fechaFin && f.fechaFin < f.fechaInicio) return 'La fecha de finalización no puede ser anterior a la de inicio.';
   if(f.cuotas!=='' && (isNaN(Number(f.cuotas)) || Number(f.cuotas)<=0)) return 'La cantidad de cuotas tiene que ser un número mayor a 0.';
+  if(String(f.monto||'').trim()!=='' && !(cgParseNum(f.monto)>=0)) return 'El monto desembolsado no parece un número válido.';
   if(f.anio!=='' && (isNaN(Number(f.anio)) || Number(f.anio)<1900 || Number(f.anio)>2100)) return 'El año del vehículo no parece correcto.';
   return '';
 }
@@ -4591,13 +4598,15 @@ function contratoToPayload(f){
     tipo_tasa: f.tipoTasa,
     tasa_base: f.tipoTasa==='Variable' ? f.tasaBase : null,
     tasa_interes: num(String(f.tasaInteres).replace(',','.')),
+    monto_desembolsado: String(f.monto||'').trim()==='' ? null : cgParseNum(f.monto),
+    monto_moneda: f.montoMoneda==='USD' ? 'USD' : 'ARS',
     updated_at: new Date().toISOString(),
   };
 }
 function resetContratoForm(){
   state.contratoEditId = null;
   state.contratoForm = { cliente:'', marca:'', modelo:'', anio:'', dominio:'', fechaInicio:'', fechaFin:'', cuotas:'',
-    tipoPrestamo:'Leasing', tipoTasa:'Fija', tasaBase:'Tamar', tasaInteres:'' };
+    tipoPrestamo:'Leasing', tipoTasa:'Fija', tasaBase:'Tamar', tasaInteres:'', monto:'', montoMoneda:'ARS' };
 }
 async function fetchContratos(){
   const {data, error} = await sb.from('contratos_transcol').select('*').order('created_at', {ascending:false});
@@ -4605,6 +4614,7 @@ async function fetchContratos(){
   return data || [];
 }
 async function loadContratos(){
+  if(!state.cot.listaLoaded && !state.cot.listaLoading){ try{ cotCargarLista(); }catch(e){} }
   state.contratosLoading = true; render();
   try{ state.contratos = await fetchContratos(); state.contratosLoaded = true; }
   catch(e){ state.error = (e&&e.message)||'No pude cargar los contratos.'; }
@@ -4623,7 +4633,7 @@ async function handleGuardarContrato(){
     state.notice = state.contratoEditId ? 'Contrato actualizado.' : 'Contrato guardado en la agenda.';
     resetContratoForm();
     state.contratos = await fetchContratos(); state.contratosLoaded = true;
-  } catch(e){ state.error = (e&&e.message)||'No pude guardar el contrato.'; }
+  } catch(e){ const m=(e&&e.message)||''; state.error = /monto_desembolsado|monto_moneda/.test(m) ? 'Falta agregar la columna del monto en Supabase: corré el script contratos_transcol_monto.sql en el SQL Editor y probá de nuevo.' : (m||'No pude guardar el contrato.'); }
   finally{ state.contratosLoading = false; render(); }
 }
 function editarContrato(id){
@@ -4635,6 +4645,7 @@ function editarContrato(id){
     dominio:c.veh_dominio||'', fechaInicio:c.fecha_inicio||'', fechaFin:c.fecha_fin||'', cuotas:c.cuotas==null?'':String(c.cuotas),
     tipoPrestamo:c.tipo_prestamo||'Leasing', tipoTasa:c.tipo_tasa||'Fija', tasaBase:c.tasa_base||'Tamar',
     tasaInteres:c.tasa_interes==null?'':String(c.tasa_interes),
+    monto:c.monto_desembolsado==null?'':String(c.monto_desembolsado).replace('.',','), montoMoneda:c.monto_moneda==='USD'?'USD':'ARS',
   };
   state.error=''; state.notice='';
   render();
@@ -4654,6 +4665,19 @@ async function borrarContrato(id){
   } catch(e){ state.error = (e&&e.message)||'No pude borrar el contrato.'; }
   finally{ state.contratosLoading = false; render(); }
 }
+function cotMontoDesembolso(r){      // leasing: valor total con IVA; prendario: monto financiado
+  const tot=cotR2(Number(r.precio_unitario)*Number(r.cantidad)), conIva=cotR2(tot+cotR2(tot*Number(r.iva)));
+  return r.tipo==='PRENDARIO' && Number(r.ltv_pct)>0 ? cotR2(conIva*Number(r.ltv_pct)/100) : conIva;
+}
+function contratoCotizaciones(){
+  const q=normName(state.contratoForm.cliente); if(q.length<3) return [];
+  return (state.cot.lista||[]).filter(r=>{ const n=normName(r.cliente); return n && (n.includes(q)||q.includes(n)); }).slice(0,15);
+}
+function aplicarCotizacionAContrato(id){
+  const r=(state.cot.lista||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  state.contratoForm.monto=String(cotMontoDesembolso(r)).replace('.',','); state.contratoForm.montoMoneda=r.moneda==='USD'?'USD':'ARS';
+  render();
+}
 function contratosFiltrados(){
   const q = normName(state.contratosSearch||'');
   if(!q) return state.contratos;
@@ -4664,13 +4688,13 @@ function buildContratosListInner(){
   if(state.contratos.length===0) return '<div class="muted-italic" style="padding:20px;">Todavía no cargaste ningún contrato.</div>';
   if(list.length===0) return '<div class="muted-italic" style="padding:20px;">No hay contratos que coincidan con la búsqueda.</div>';
   let h = '<div class="table-wrap" style="margin-bottom:0;"><table><thead><tr><th>Cliente</th><th>Vehículo</th><th>Dominio</th><th>Inicio</th><th>Fin</th>'+
-    '<th class="r">Cuotas</th><th>Tipo</th><th>Tasa</th><th>Estado</th><th></th></tr></thead><tbody>';
+    '<th class="r">Cuotas</th><th class="r">Monto desembolsado</th><th>Tipo</th><th>Tasa</th><th>Estado</th><th></th></tr></thead><tbody>';
   list.forEach(c=>{
     const est = contratoEstado(c);
     const veh = [c.veh_marca, c.veh_modelo, c.veh_anio].filter(x=>x!=null && x!=='').join(' ');
     h += '<tr><td style="font-weight:500;">'+esc(c.cliente)+'</td><td>'+esc(veh||'—')+'</td><td class="font-num">'+esc(c.veh_dominio||'—')+'</td>'+
       '<td class="font-num">'+esc(fmtDateISO(c.fecha_inicio))+'</td><td class="font-num">'+esc(fmtDateISO(c.fecha_fin))+'</td>'+
-      '<td class="r font-num">'+(c.cuotas==null?'—':c.cuotas)+'</td><td>'+esc(c.tipo_prestamo||'—')+'</td><td class="font-num">'+esc(formatTasaContrato(c))+'</td>'+
+      '<td class="r font-num">'+(c.cuotas==null?'—':c.cuotas)+'</td><td class="r font-num" style="white-space:nowrap;">'+(c.monto_desembolsado==null?'—':esc(cotMoneyTxt(Number(c.monto_desembolsado),c.monto_moneda)))+'</td><td>'+esc(c.tipo_prestamo||'—')+'</td><td class="font-num">'+esc(formatTasaContrato(c))+'</td>'+
       '<td><span style="font-size:11px;padding:2px 9px;border-radius:20px;background:'+est.bg+';color:'+est.color+';white-space:nowrap;">'+esc(est.txt)+'</span></td>'+
       '<td style="white-space:nowrap;"><button class="btn" style="padding:4px 9px;font-size:12px;" data-action="contrato-editar" data-id="'+esc(c.id)+'">Editar</button> '+
       '<button class="btn" style="padding:4px 9px;font-size:12px;" data-action="contrato-borrar" data-id="'+esc(c.id)+'">Borrar</button></td></tr>';
@@ -4707,6 +4731,9 @@ function buildContratos(){
     '<div style="'+grid+'margin-bottom:14px;">'+
       fld('Fecha de inicio', input('fechaInicio','date'))+fld('Fecha de finalización', input('fechaFin','date'))+
       fld('Cantidad de cuotas', input('cuotas','number','min="1"'))+fld('Tipo de préstamo', select('tipoPrestamo',['Leasing','Prendario']))+
+      fld('Monto desembolsado (con IVA)', input('monto','text','inputmode="decimal" placeholder="Ej: 55250000"'))+
+      fld('Moneda del monto', '<select class="contrato-field" data-field="montoMoneda" style="'+inp+'background:var(--field);"><option value="ARS" '+(f.montoMoneda!=='USD'?'selected':'')+'>Pesos</option><option value="USD" '+(f.montoMoneda==='USD'?'selected':'')+'>Dólares</option></select>')+
+      (contratoCotizaciones().length ? fld('Traer el monto de una cotización', '<select id="contrato-cot-pick" style="'+inp+'background:var(--field);"><option value="">Elegí una cotización…</option>'+contratoCotizaciones().map(r=>'<option value="'+esc(r.id)+'">'+esc((r.referencia!=null?'Ref. '+r.referencia+' · ':'')+(r.tipo==='PRENDARIO'?'Prendario':'Leasing')+' · '+(r.bien||'')+' · '+cotMoneyTxt(cotMontoDesembolso(r),r.moneda))+'</option>').join('')+'</select>') : '')+
     '</div>'+
     '<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Tasa</div>'+
     '<div style="'+grid+'margin-bottom:6px;">'+
@@ -4734,8 +4761,8 @@ async function exportContratosExcel(){
   if(!lista.length){ state.error='No hay contratos para exportar.'; render(); return; }
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Contratos');
-  const heads = ['Cliente','Marca','Modelo','Año','Dominio','Inicio','Fin','Cuotas','Tipo de préstamo','Tipo de tasa','Tasa de referencia','Interés (%)','Estado'];
-  ws.columns = [{width:30},{width:14},{width:16},{width:8},{width:12},{width:12},{width:12},{width:8},{width:16},{width:12},{width:16},{width:12},{width:18}];
+  const heads = ['Cliente','Marca','Modelo','Año','Dominio','Inicio','Fin','Cuotas','Tipo de préstamo','Tipo de tasa','Tasa de referencia','Interés (%)','Monto desembolsado','Moneda del monto','Estado'];
+  ws.columns = [{width:30},{width:14},{width:16},{width:8},{width:12},{width:12},{width:12},{width:8},{width:16},{width:12},{width:16},{width:12},{width:20},{width:12},{width:18}];
   heads.forEach((h,i)=>{
     const cell = ws.getCell(1,i+1);
     cell.value = h; cell.font = {bold:true, color:{argb:'FFFFFFFF'}};
@@ -4746,8 +4773,8 @@ async function exportContratosExcel(){
     const r = idx+2;
     const vals = [c.cliente, c.veh_marca||'', c.veh_modelo||'', c.veh_anio==null?'':c.veh_anio, c.veh_dominio||'',
       fmtDateISO(c.fecha_inicio), fmtDateISO(c.fecha_fin), c.cuotas==null?'':c.cuotas, c.tipo_prestamo||'', c.tipo_tasa||'',
-      c.tipo_tasa==='Variable' ? (c.tasa_base||'') : '', c.tasa_interes==null?'':Number(c.tasa_interes), contratoEstado(c).txt];
-    vals.forEach((v,i)=>{ const cell = ws.getCell(r,i+1); cell.value = v; cell.border = thinBorderAll(); });
+      c.tipo_tasa==='Variable' ? (c.tasa_base||'') : '', c.tasa_interes==null?'':Number(c.tasa_interes), c.monto_desembolsado==null?'':Number(c.monto_desembolsado), c.monto_desembolsado==null?'':(c.monto_moneda==='USD'?'Dólares':'Pesos'), contratoEstado(c).txt];
+    vals.forEach((v,i)=>{ const cell = ws.getCell(r,i+1); cell.value = v; cell.border = thinBorderAll(); if(i===12 && v!=='') cell.numFmt='#,##0.00'; });
   });
   const buf = await wb.xlsx.writeBuffer();
   downloadBlob(buf, 'Contratos_Transcol_'+todayISO()+'.xlsx');
@@ -5059,6 +5086,7 @@ function onRootChange(e){
     toggleSetItem(state.presupuestoVisibleConcepts, e.target.value);
     drawPresupuestoChart();
   }
+  else if(e.target.id==='contrato-cot-pick'){ if(e.target.value) aplicarCotizacionAContrato(e.target.value); }
   else if(e.target.classList.contains('contrato-field') && e.target.dataset.field==='tipoTasa'){ state.contratoForm.tipoTasa = e.target.value; render(); }
   else if(e.target.id==='riesgo-cac'){ state.riesgoDatos.cac = e.target.checked; render(); }
   else if(e.target.id==='riesgo-regimen'){ state.riesgoDatos.regimenIngreso = e.target.value; render(); }
