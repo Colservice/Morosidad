@@ -1742,6 +1742,8 @@ function vzSiNo(text){
 function vzCapital(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 function vzLimpiaTexto(raw,tipo){
   let s=String(raw||'').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim();
+  s=s.replace(/^no\s*[,;]\s*/i,'').replace(/^no\s+(?=es\s)/i,'');
+  for(let k=0;k<3;k++) s=s.replace(/^(?:no[\s,]+)?(?:mejor|ponele|ponelo|pone|poné|que sea|en realidad|perd[oó]n|dije mal)(?=[\s,]|$)[\s,]*/i,'');
   s=s.replace(/^(?:(?:el|la|los|las)\s+)?(?:cliente|proveedor|bien|producto|equipo|veh[ií]culo|unidad|empresa|raz[oó]n social|nombre|marca y modelo|modelo)\s*(?::|es|se llama|ser[aá]|ser[ií]a|son)?\s+/i,'');
   s=s.replace(/^(?:se llama|es|ser[ií]a|ser[aá]|son|para|el nombre es|se trata de|dice|a nombre de)\s+/i,'');
   if(tipo==='bien') s=s.replace(/^(?:un|una|unos|unas)\s+/i,'');
@@ -1770,7 +1772,7 @@ function vzCampo(text){
   if(rx(/\b(valor|cotizacion|numero|dato)\b.*\b(tamar|badlar)\b/) || ((has('tamar')||has('badlar')) && num && !/\b(spread)\b/.test(t))) return 'refValor';
   if(has('tamar')||has('badlar')||has('referencia')) return 'ref';
   if(rx(/\btipo de tasa\b|\btasa (variable|fija)\b/) || (has('tasa') && !has('nominal') && !has('anual') && !rx(/\btasa (nominal|anual)\b/))) return 'tipoTasa';
-  if(has('spread')||has('margen')||has('diferencial')) return 'spread';
+  if(has('spread')||has('spreed')||has('spred')||has('espred')||has('spret')||has('spreat')||has('esprit')||has('margen')||has('diferencial')) return 'spread';
   if(has('tna')||rx(/\btasa nominal\b/)) return 'tnaFija';
   if(has('ltv')||has('financiar')||has('financiacion')||has('financiado')||rx(/\bporcentaje (a|de) financi/)) return 'ltv';
   if(has('deposito')||has('garantia')) return 'deposito';
@@ -1954,7 +1956,7 @@ function vzParsePaso(id,text,st){
     case 'cliente': case 'proveedor': case 'bien': {
       const s=vzLimpiaTexto(text,id); if(!s||!/[a-z0-9]/i.test(vzNorm(s))) return {ok:false,msg:'No escuché el nombre.'};
       if(s.length>80) return {ok:false,msg:'Es muy largo, resumilo un poco.'};
-      return {ok:true,set:{[id]:s},echo:s+'.'}; }
+      return {ok:true,set:{[id]:s},echo:s+'.',texto:true}; }
     case 'cantidad': r=vzParseCantidad(text); if(!r.ok) return r; return {ok:true,set:{cantidad:String(r.value)},echo:(r.value===1?'Una unidad.':vzPalabras(r.value,true)+' unidades.'),val:r.value};
     case 'moneda': r=vzParseMoneda(text); if(!r.ok) return r; return {ok:true,set:{moneda:r.value},echo:r.value==='USD'?'En dólares.':'En pesos.'};
     case 'iva': r=vzParseIva(text); if(!r.ok) return r;
@@ -1997,23 +1999,18 @@ function vzResumenRevision(st){
   const est=st.hooks.calc(); const f=st.f;
   if(!est.ok) return {ok:false,errores:est.errores};
   const v=est.v, r=est.r, mon=f.moneda, prend=v.tipo==='PRENDARIO', out=[];
-  out.push('Perfecto, ya tengo todos los datos. Antes de armar el PDF, verifico con vos.');
-  out.push((prend?'Préstamo prendario':'Leasing')+' para '+f.cliente+'. '+(v.cantidad===1?'Una unidad':vzPalabras(v.cantidad,true)+' unidades')+' de '+f.bien+', proveedor '+f.proveedor+', a '+vzDinero(v.precio,mon)+' sin IVA'+(v.cantidad>1?' cada una':'')+'.');
-  if(prend) out.push('Se financia el '+vzPct(v.ltv)+' del precio con IVA, o sea '+vzDinero(r.financiado,mon)+'.');
-  if(f.tipoTasa==='Variable') out.push('Tasa elegida: '+vzRefNom(f.ref)+' variable, que hoy es '+vzPct(v.refValor)+', más un spread de '+vzPctPuntos(v.spread)+'. La tasa nominal anual queda en '+vzPct(v.tna)+'.');
-  else out.push('Tasa elegida: fija, de '+vzPct(v.tna)+' nominal anual.');
-  out.push(v.iva===0?'IVA: exento.':'IVA elegido: '+vzPct(v.iva*100)+'.');
-  out.push('Plazo elegido: '+vzMeses(v.plazo)+(v.plazo>=12&&v.plazo%12===0?', es decir '+vzPalabras(v.plazo/12,true)+(v.plazo===12?' año':' años'):'')+'.');
-  out.push('Depósito en garantía: '+(v.dep===0?'sin depósito':vzPct(v.dep))+'. '+(prend?'':'Opción de compra: '+(v.opc===0?'sin opción':vzPct(v.opc))+'. ')+'Gastos de estructuración: '+(v.gas===0?'sin gastos':vzPct(v.gas))+'.');
+  out.push('Listo, esto es lo que armé.');
+  out.push('Cliente: '+f.cliente+'. Proveedor: '+f.proveedor+'. Bien: '+(v.cantidad>1?vzPalabras(v.cantidad,true)+' unidades de ':'')+f.bien+'.');
+  if(f.tipoTasa==='Variable') out.push('Tasa elegida: variable, '+vzRefNom(f.ref)+' más un spread de '+vzPctPuntos(v.spread)+'.');
+  else out.push('Tasa elegida: fija, de '+vzPct(v.tna)+'.');
   if(prend){
-    out.push('El canon mensual sin IVA es de '+vzDinero(r.canon,mon)+'.');
-    if(v.iva===0) out.push('Como la operación es exenta de IVA, el canon con IVA es el mismo importe.');
-    if(v.iva>0) out.push('Con IVA, la primera cuota es de '+vzDinero(r.canonConIva,mon)+'. Ojo que el IVA se calcula sobre los intereses, así que el importe con IVA va bajando mes a mes.');
+    out.push('Canon mensual: '+vzDinero(r.canon,mon)+' sin IVA'+(v.iva>0?', y la primera cuota con IVA es de '+vzDinero(r.canonConIva,mon):'')+'.');
   } else {
-    out.push('El canon mensual sin IVA es de '+vzDinero(r.canon,mon)+'.');
-    if(v.iva>0) out.push('Y el canon mensual con IVA es de '+vzDinero(r.canonConIva,mon)+'.');
-    else out.push('Como la operación es exenta de IVA, el canon con IVA es el mismo importe.');
+    out.push('Canon mensual: '+vzDinero(r.canon,mon)+' sin IVA'+(v.iva>0?', y '+vzDinero(r.canonConIva,mon)+' con IVA':'')+'.');
   }
+  out.push('Meses financiados: '+vzPalabras(v.plazo,false)+'.');
+  out.push(v.dep>0?'Depósito en garantía: '+vzDinero(r.deposito,mon)+'.':'Sin depósito en garantía.');
+  out.push(v.gas>0?'Gastos de estructuración: '+vzDinero(r.gastos,mon)+(v.iva>0?' más IVA':'')+'.':'Sin gastos de estructuración.');
   out.push('¿Está todo bien? Decí sí para generar el PDF, o decime qué dato querés corregir.');
   return {ok:true,say:out};
 }
@@ -2066,9 +2063,16 @@ function vzResponder(st,alts){
       return vzCorregir(st,cmd.field,alts);
     }
   }
-  // confirmación pendiente de valor raro / plazo ambiguo
+  if(st.fase==='preguntando'){ const cz=vzCruzada(st,text,alts); if(cz) return cz; }
+  // confirmación pendiente de valor raro / plazo ambiguo / nombre
   if(st.pend){
     const p=st.pend;
+    if(p.tipo==='texto'){
+      const yn=vzSiNoEstricto(text);
+      if(yn==='si'){ st.pend=null; vzAplicar(st,p.id,p.res); return vzSiguiente(st,['Perfecto.']); }
+      if(yn==='no'){ st.pend=null; st.done[p.id]=false; st.paso=p.id; st.fase='preguntando'; return {say:['Dale. Decime el nombre de nuevo, o escribilo en el cuadro de texto.'],reask:true}; }
+      st.pend=null; st.paso=p.id; st.fase='preguntando';      // dijo otro nombre: se toma como respuesta nueva
+    }
     if(p.tipo==='soft'){
       const yn=vzSiNo(text);
       if(yn==='si'){ st.pend=null; vzAplicar(st,p.id,p.res); return vzSiguiente(st,['Anotado.']); }
@@ -2124,6 +2128,7 @@ function vzResponder(st,alts){
   const sf=VZ_SOFT[id]&&res.val!==undefined?VZ_SOFT[id](res.val,st.f):null;
   if(sf){ const q='Entendí '+(id==='precio'?vzDinero(res.val,st.f.moneda):id==='cantidad'?vzPalabras(res.val,true)+' unidades':vzPct(res.val))+', que es un valor poco común. ¿Es correcto?';
     st.pend={tipo:'soft',id:id,res:res,pregunta:q}; return {say:[q],reask:true}; }
+  if(res.texto) return vzPedirConfirmTexto(st,id,res);
   vzAplicar(st,id,res);
   if(id==='tipoTasa' && st.f.tipoTasa==='Variable' && res.ref){ st.refElegida=true; return {say:[res.echo],fetch:st.f.ref,esperarTasa:true}; }
   if(id==='ref'){ return {say:[res.echo],fetch:st.f.ref,esperarTasa:true}; }
@@ -2146,6 +2151,23 @@ function vzRepetir(st){
   if(st.fase==='otra') return {say:['¿Querés armar otra cotización? Decí sí o no.'],reask:true};
   return {say:[vzPregunta(st.paso||'tipo',st)],reask:true};
 }
+const VZ_YN_SET=VZ_SI.concat(['no','nop','nope','esta','bien','asi','es','todo','mal','correcto','incorrecto','claro','que','por','supuesto','de','acuerdo','mejor','cambialo','cambiar','negativo','ese','eso','si','exacto','justo','jaja']);
+function vzSiNoEstricto(text){ const tk=vzToks(text); if(!tk.length||tk.length>5||!tk.every(t=>VZ_YN_SET.indexOf(t)>=0)) return null; return vzSiNo(text); }
+function vzPedirConfirmTexto(st,id,res){
+  Object.assign(st.f,res.set); st.done[id]=false; st.paso=id; st.fase='preguntando';
+  const q='Entendí: '+res.set[id]+'. ¿Está bien? Si no, decime el nombre de nuevo o escribilo en el cuadro.';
+  st.pend={tipo:'texto',id:id,res:res,pregunta:q};
+  return {say:[q],reask:true};
+}
+const VZ_CUE=/(?:^|\s)(mejor|ponele|ponelo|pone|pon|poner|que sea|en realidad|perdon|me equivoque|cambia|cambiame|cambiar|corregi|corregir|modifica|modificar|dije mal)(?=\s|$)/;
+function vzCruzada(st,text,alts){
+  const t=vzNorm(text); if(!VZ_CUE.test(' '+t)) return null;
+  const campo=vzCampo(text); if(!campo||campo===st.paso) return null;
+  const grupoTasa=['tipoTasa','ref','refValor']; if(grupoTasa.indexOf(campo)>=0&&grupoTasa.indexOf(st.paso)>=0) return null;
+  if(['cliente','proveedor','bien'].indexOf(st.paso)>=0 && !/^(no )?(mejor|ponele|ponelo|pone|pon|poner|que sea|en realidad|perdon|me equivoque|cambia|cambiame|cambiar|corregi|corregir|modifica|modificar|dije mal)( |$)/.test(t)) return null;
+  if(st.pend){ const p=st.pend; st.pend=null; if(p.tipo==='texto') vzAplicar(st,p.id,p.res); }
+  return vzCorregir(st,campo,alts);
+}
 function vzCorregir(st,campo,alts){
   const f=st.f;
   if(campo==='ref' && f.tipoTasa!=='Variable') campo='tipoTasa';
@@ -2157,8 +2179,8 @@ function vzCorregir(st,campo,alts){
   if(campo==='opcion' && f.tipo==='PRENDARIO') return {say:['La opción de compra solo se usa en el leasing.'],reask:true};
   // ¿vino el valor nuevo en la misma frase? ("cambiar el plazo a 48 meses")
   const resto=alts.map(a=>{
-    let t=a.replace(/^\s*(?:corregir|corregi|corrige|corregime|cambiar|cambia|cambiame|cambiemos|modificar|modifica|modificame|editar|edita|quiero (?:cambiar|corregir|modificar)|necesito (?:cambiar|corregir)|me equivoque en|podes (?:cambiar|corregir)|podrias cambiar)\s+/i,'');
-    if(['cliente','proveedor','bien'].indexOf(campo)>=0) t=t.replace(/^(?:el|la|los|las|del|de la)?\s*(?:cliente|proveedor|bien|producto|equipo|veh[ií]culo|modelo|titular|vendedor|comprador)\s*(?:a|por|es|:|ahora es|seria|sería)?\s*/i,'');
+    let t=a; for(let k=0;k<3;k++) t=t.replace(/^\s*(?:no[\s,]+)?(?:mejor|ponele|ponelo|pone|poné|pon|poner|que sea|en realidad|perd[oó]n|me equivoqu[eé](?: en)?|dije mal|corregir|corregi|corregí|corrige|corregime|cambiar|cambia|cambiá|cambiame|cambiemos|modificar|modifica|modificame|editar|edita|quiero (?:cambiar|corregir|modificar)|necesito (?:cambiar|corregir)|podes (?:cambiar|corregir)|podrias cambiar)(?=[\s,]|$)[\s,]*/i,'');
+    if(['cliente','proveedor','bien'].indexOf(campo)>=0) t=t.replace(/^(?:el|la|los|las|del|de la|de)?\s*(?:cliente|proveedor|bien|producto|equipo|veh[ií]culo|modelo|titular|vendedor|comprador)\s*(?:a|por|es|:|ahora es|seria|sería)?\s*/i,'');
     return t;
   });
   const t0=st.paso;
@@ -2170,6 +2192,7 @@ function vzCorregir(st,campo,alts){
     // sacamos la palabra del campo para que no confunda al parser numérico
     const r=vzParsePaso(campo,t,st); if(r.ok){ res=r; break; }
   }
+  if(res && res.texto) return vzPedirConfirmTexto(st,campo,res);
   if(res && !(VZ_SOFT[campo]&&res.val!==undefined&&VZ_SOFT[campo](res.val,st.f))){
     vzAplicar(st,campo,res);
     if((campo==='ref'||(campo==='tipoTasa'&&res.ref))) return {say:[res.echo],fetch:st.f.ref,esperarTasa:true};
@@ -2193,6 +2216,26 @@ function vzHooks(){
   return { tasa:(r)=>state.cot.tasas[r], hoy:()=>cotHoyISO(), calc:()=>cotEstado(),
     setTasaManual:(r,v)=>{ state.cot.tasas[r]={valor:v,fecha:cotHoyISO(),fuente:'manual'}; } };
 }
+/* ---- elección de voz: preferimos las voces "naturales/neuronales" (Edge, Chrome) y rioplatenses ---- */
+function vzPuntajeVoz(v){
+  const n=(v.name||'')+' '+(v.lang||''); let p=0;
+  if(!/^es/i.test(v.lang||'')) return -1000;
+  if(/natural|neural/i.test(n)) p+=100;
+  if(/online/i.test(n)) p+=40;
+  if(/google/i.test(n)) p+=25;
+  if(/es[-_]AR/i.test(v.lang)) p+=30; else if(/es[-_](US|MX|419)/i.test(v.lang)) p+=20; else if(/es[-_]ES/i.test(v.lang)) p+=8;
+  if(/elena|tomas|tomás|dalia|jorge|paloma|salome|salomé|lorenzo/i.test(v.name)) p+=10;
+  if(/espeak|compact/i.test(n)) p-=60;
+  if(/microsoft/i.test(n) && !/online|natural/i.test(n)) p-=15;     // las voces de escritorio viejas suenan robóticas
+  return p;
+}
+function vzVocesEs(){ try{ return (window.speechSynthesis.getVoices()||[]).filter(v=>/^es/i.test(v.lang||'')).sort((a,b)=>vzPuntajeVoz(b)-vzPuntajeVoz(a)); }catch(e){ return []; } }
+function vzVoz(){
+  const L=vzVocesEs(); if(!L.length) return null;
+  let guardada=''; try{ guardada=localStorage.getItem('vz_voz')||''; }catch(e){}
+  return L.find(v=>v.name===guardada) || L[0];
+}
+try{ if('speechSynthesis' in window) window.speechSynthesis.addEventListener('voiceschanged',()=>{ try{ vzPanel(); }catch(e){} }); }catch(e){}
 function vzHablable(t){
   return String(t).replace(/\bTAMAR\b/g,'Tamar').replace(/\bBADLAR\b/g,'Badlar').replace(/\bS\.A\.S\./g,'S A S').replace(/\bS\.R\.L\./g,'S R L').replace(/\bS\.A\./g,'S A').replace(/\bUSD\b/g,'dólares').replace(/\$/g,' pesos ').replace(/\s+/g,' ').trim();
 }
@@ -2211,7 +2254,7 @@ function vzHablarUno(texto,mi){
     const wd=setTimeout(fin, 3500+texto.length*110);
     try{
       const u=new SpeechSynthesisUtterance(vzHablable(texto)); u.lang='es-AR'; u.rate=1.02;
-      const v=pickSpanishVoice(); if(v) u.voice=v;
+      const v=vzVoz(); if(v){ u.voice=v; u.lang=v.lang; } u.rate=1.0; u.pitch=1.0;
       u.onend=fin; u.onerror=fin; vzUtter=u;
       window.speechSynthesis.speak(u);
     }catch(e){ fin(); }
@@ -2255,7 +2298,7 @@ function vzPanelHtml(){
       '<span style="flex:1"></span>'+
       (S.estado==='pausa'?bt('vz-continuar','▶ Continuar'):bt('vz-pausa','⏸ Pausa'))+
       bt('vz-repetir','↻ Repetir')+bt('vz-saltar','⏭ Responder ya')+
-      ((S.modoTexto||S.motivo==='network')&&VZ_SR?bt('vz-mic','🎤 Reintentar micrófono'):'')+bt('vz-mute',S.mute?'🔇 Voz apagada':'🔊 Voz encendida')+
+      ((S.modoTexto||S.motivo==='network')&&VZ_SR?bt('vz-mic','🎤 Reintentar micrófono'):'')+(vzVocesEs().length>1?'<select id="vz-voz" title="Elegir la voz" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border2);background:var(--field);color:inherit;max-width:200px;">'+vzVocesEs().map(v=>'<option value="'+esc(v.name)+'" '+((vzVoz()&&vzVoz().name===v.name)?'selected':'')+'>'+esc(v.name.replace(/^Microsoft |^Google /,'').replace(/ Online \(Natural\)/,' ✨').slice(0,34))+'</option>').join('')+'</select>':'')+bt('vz-mute',S.mute?'🔇 Voz apagada':'🔊 Voz encendida')+
       bt('vz-detener','✖ Terminar')+
     '</div>'+
     '<div id="vz-pregunta" style="font-size:16px;font-weight:600;line-height:1.35;margin:6px 0;">'+esc(S.pregunta)+'</div>'+
@@ -2396,6 +2439,12 @@ function vzOnClick(a){
   }
   else if(a==='vz-mic'){ if(!S.on) return; const mi=++vzRun; vzCortarVoz(); vzCortarMic(); S.modoTexto=false; S.motivo=''; S.redErr=0; S.aviso=''; vzEscuchar(mi); }
   else if(a==='vz-saltar'){ if(!S.on) return; S.saltando=true; vzCortarVoz(); }
+}
+function vzOnChangeVoz(e){
+  if(!e.target||e.target.id!=='vz-voz') return false;
+  try{ localStorage.setItem('vz_voz',e.target.value); }catch(x){}
+  try{ window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance('Hola, soy Coti. ¿Así me escuchás mejor?'); const v=vzVoz(); if(v){u.voice=v;u.lang=v.lang;} window.speechSynthesis.speak(u); }catch(x){}
+  return true;
 }
 function vzOnKeydown(e){ if(e.target&&e.target.id==='vz-texto'&&e.key==='Enter'){ e.preventDefault(); vzEnviarTexto(); } }
 
@@ -5086,6 +5135,7 @@ function onRootChange(e){
     toggleSetItem(state.presupuestoVisibleConcepts, e.target.value);
     drawPresupuestoChart();
   }
+  else if(vzOnChangeVoz(e)){ }
   else if(e.target.id==='contrato-cot-pick'){ if(e.target.value) aplicarCotizacionAContrato(e.target.value); }
   else if(e.target.classList.contains('contrato-field') && e.target.dataset.field==='tipoTasa'){ state.contratoForm.tipoTasa = e.target.value; render(); }
   else if(e.target.id==='riesgo-cac'){ state.riesgoDatos.cac = e.target.checked; render(); }
