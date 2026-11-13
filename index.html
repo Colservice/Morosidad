@@ -1133,6 +1133,18 @@ function cotPctTxt(x){
 }
 function cotIvaLabel(iva){ return iva===0 ? 'Exento' : (iva===0.21 ? '21%' : (iva===0.105 ? '10,5%' : cotPctTxt(iva*100)+'%')); }
 function cotMoneyTxt(n,moneda){ return (moneda==='USD'?'USD ':'$')+cgFmtNum(n,2); }
+/* Moneda en la que se MUESTRA la cotización: 'USD' solo si es en dólares; 'USD_BNA' se carga en dólares pero se muestra en pesos. */
+function cotMon(f){ return f.moneda==='USD'?'USD':'ARS'; }
+/* Precio unitario sin IVA con el que se calcula (en pesos si es USD_BNA: precio en dólares × dólar BNA vendedor). */
+function cotPrecioEfectivo(f){
+  const p=cgParseNum(f.precio);
+  if(f.moneda==='USD_BNA'){ const tc=cgParseNum(f.tc); return (p>0 && tc>0) ? cotR2(p*tc) : NaN; }
+  return p;
+}
+function cotFilaTc(f,v){
+  if(!(v.tc>0)) return [];
+  return [['Tipo de cambio de referencia','Dólar BNA vendedor '+cotMoneyTxt(v.tc,'ARS')+(f.tcFecha?' al '+cgFechaCorta(f.tcFecha):'')]];
+}
 function cotHoyISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function cotSumarHabiles(iso,n){   // suma n días hábiles (lunes a viernes; no contempla feriados)
   const [y,m,d]=iso.split('-').map(Number); const dt=new Date(y,m-1,d); let k=0;
@@ -1144,7 +1156,13 @@ function cotSumarDias(iso,dias){ const [y,m,d]=iso.split('-').map(Number); const
 /* Lee y valida el formulario. Devuelve {ok, errores[], v} con números ya interpretados */
 function cotLeer(f, tasas){
   const err=[]; const n=x=>cgParseNum(x);
-  const precio=n(f.precio), cantidad=f.cantidad===''?1:n(f.cantidad), plazo=n(f.plazo);
+  let precio=n(f.precio); const cantidad=f.cantidad===''?1:n(f.cantidad), plazo=n(f.plazo);
+  let tc=NaN, precioUsd=NaN;
+  if(f.moneda==='USD_BNA'){
+    tc=n(f.tc); precioUsd=precio;
+    if(!(tc>0 && tc<1e6)) err.push('Falta el dólar BNA vendedor (si no pude traerlo, cargalo a mano).');
+    precio=(precioUsd>0 && tc>0) ? cotR2(precioUsd*tc) : NaN;
+  }
   const prend=f.tipo==='PRENDARIO';
   const dep=n(f.deposito), opc=prend?0:n(f.opcion), gas=n(f.gastos), ltv=prend?n(f.ltv):NaN;
   const iva=Number(f.iva);
@@ -1166,7 +1184,7 @@ function cotLeer(f, tasas){
     if(!(spread>=0)) err.push('Falta el spread (puede ser 0).');
     tna=refValor+spread;
   } else { tna=n(f.tnaFija); if(!(tna>=0)) err.push('Falta la TNA (puede ser 0).'); }
-  const v={ tipo:prend?'PRENDARIO':'LEASING', precio, cantidad, iva, plazo, dep, opc, gas, ltv, tna, refValor, spread };
+  const v={ tipo:prend?'PRENDARIO':'LEASING', precio, cantidad, iva, plazo, dep, opc, gas, ltv, tna, refValor, spread, tc, precioUsd };
   return { ok:err.length===0, errores:err, v };
 }
 /* Cálculo de la operación.
@@ -1222,7 +1240,7 @@ function cotCalcularPrendario(v){
 /* Filas del cuadro (se usa en pantalla y en el PDF) */
 const COT_LEYENDA_OC='* Será una cuota complementaria equivalente al valor de la última cuota del leasing (canon).';
 function cotFilas(f, v, r, tasasInfo){
-  const m=f.moneda, mas=v.iva>0?' más IVA':'';
+  const m=cotMon(f), mas=v.iva>0?' más IVA':'';
   const money=x=>cotMoneyTxt(x,m);
   const tnaTxt=f.tipoTasa==='Variable' ? 'TNA '+cotPctTxt(v.tna)+'% ('+f.ref+' '+cotPctTxt(v.refValor)+'% + Spread '+cotPctTxt(v.spread)+'%)' : 'TNA '+cotPctTxt(v.tna)+'% (fija)';
   if(v.tipo==='PRENDARIO'){
@@ -1231,6 +1249,7 @@ function cotFilas(f, v, r, tasasInfo){
       ['Bien a entregar', String(f.bien).trim()],
       ['Cantidad de unidades', String(v.cantidad)],
       ['Moneda', m==='USD'?'Dólares estadounidenses (billete)':'Pesos argentinos'],
+      ...cotFilaTc(f,v),
       ['Valor total de la unidad'.replace('unidad', v.cantidad>1?'unidades':'unidad'), money(r.valorTotal)],
       ['Precio total c/IVA ('+cotIvaLabel(v.iva)+')', money(r.precioConIva)],
       ['Valor del crédito prendario ('+cotPctTxt(v.ltv)+'% de la factura total)', money(r.financiado)],
@@ -1246,6 +1265,7 @@ function cotFilas(f, v, r, tasasInfo){
     ['Bien a entregar', String(f.bien).trim()],
     ['Cantidad de unidades', String(v.cantidad)],
     ['Moneda', m==='USD'?'Dólares estadounidenses (billete)':'Pesos argentinos'],
+    ...cotFilaTc(f,v),
     ['Valor total de la unidad'.replace('unidad', v.cantidad>1?'unidades':'unidad'), money(r.valorTotal)],
     ['Precio total c/IVA ('+cotIvaLabel(v.iva)+')', money(r.precioConIva)],
     ['Valor del leasing', money(r.financiado)],
@@ -1292,11 +1312,11 @@ async function cotFetchTasa(nombre, fetchFn){
 const COT_LS_KEY='cot_tasas_v1';
 function cotBlank(){
   return { tipo:'LEASING', ltv:'80', cliente:'', proveedor:'', bien:'', cantidad:'1', moneda:'ARS', iva:'0.105', precio:'', tipoTasa:'Variable', ref:'TAMAR',
-    spread:'', tnaFija:'', plazo:'', deposito:'', opcion:'', gastos:'', referencia:'', validez:'2' };
+    spread:'', tnaFija:'', plazo:'', deposito:'', opcion:'', gastos:'', referencia:'', validez:'2', tc:'', tcFecha:'', tcFuente:'' };
 }
 function cotInit(){
   const st={ f:cotBlank(), tasas:{ TAMAR:{valor:'',fecha:'',fuente:''}, BADLAR:{valor:'',fecha:'',fuente:''} }, tasaLoading:false, tasaError:'',
-    lista:[], listaLoaded:false, listaLoading:false, listaError:'', lastHash:'', lastRef:null, saving:false, ultimoFetch:'' };
+    lista:[], listaLoaded:false, listaLoading:false, listaError:'', lastHash:'', lastRef:null, saving:false, ultimoFetch:'', bna:null, bnaLoading:false, bnaError:'' };
   try{
     const o=JSON.parse(localStorage.getItem(COT_LS_KEY)||'null');
     if(o && o.tasas){ ['TAMAR','BADLAR'].forEach(k=>{ if(o.tasas[k] && o.tasas[k].valor) st.tasas[k]={valor:String(o.tasas[k].valor).replace('.',','),fecha:o.tasas[k].fecha||'',fuente:'guardada'}; }); st.ultimoFetch=o.dia||''; }
@@ -1341,7 +1361,7 @@ function cotCuadroHtml(est){
   return h;
 }
 function cotCronogramaHtml(est){
-  const m=state.cot.f.moneda, r=est.r, mo=x=>cotMoneyTxt(x,m);
+  const m=cotMon(state.cot.f), r=est.r, mo=x=>cotMoneyTxt(x,m);
   return '<div class="stat-label" style="margin:16px 0 6px;">Desarrollo del préstamo (sistema francés, '+(state.cot.f.tipoTasa==='Variable'?'tasa variable':'tasa fija')+')</div>'+
     '<div class="table-wrap" style="max-height:360px;overflow:auto;"><table><thead><tr><th>Mes</th><th class="r">Capital</th><th class="r">Interés</th><th class="r">Canon</th><th class="r">Canon+IVA</th></tr></thead><tbody>'+
     r.cronograma.map(c=>'<tr><td>'+c.mes+'</td><td class="r font-num">'+esc(mo(c.capital))+'</td><td class="r font-num">'+esc(mo(c.interes))+'</td><td class="r font-num">'+esc(mo(c.canon))+'</td><td class="r font-num">'+esc(mo(c.canonIva))+'</td></tr>').join('')+
@@ -1356,15 +1376,72 @@ function cotRefreshLive(){
   const mf=document.getElementById('cot-monto-fin'); if(mf) mf.textContent=cotMontoFinTxt();
 }
 function cotPrecioIvaTxt(){
-  const f=state.cot.f, p=cgParseNum(f.precio), q=f.cantidad===''?1:cgParseNum(f.cantidad);
+  const f=state.cot.f, p=cotPrecioEfectivo(f), q=f.cantidad===''?1:cgParseNum(f.cantidad);
   if(!(p>0) || !(q>=1)) return '—';
-  const tot=cotR2(p*q); return cotMoneyTxt(cotR2(tot+cotR2(tot*Number(f.iva))),f.moneda)+(q>1?' (total '+q+' unidades)':'');
+  const tot=cotR2(p*q); return cotMoneyTxt(cotR2(tot+cotR2(tot*Number(f.iva))),cotMon(f))+(q>1?' (total '+q+' unidades)':'');
 }
 function cotMontoFinTxt(){
-  const f=state.cot.f, p=cgParseNum(f.precio), q=f.cantidad===''?1:cgParseNum(f.cantidad), l=cgParseNum(f.ltv);
+  const f=state.cot.f, p=cotPrecioEfectivo(f), q=f.cantidad===''?1:cgParseNum(f.cantidad), l=cgParseNum(f.ltv);
   if(!(p>0) || !(q>=1) || !(l>0 && l<=100)) return '—';
   const tot=cotR2(p*q), con=cotR2(tot+cotR2(tot*Number(f.iva)));
-  return cotMoneyTxt(cotR2(con*l/100),f.moneda);
+  return cotMoneyTxt(cotR2(con*l/100),cotMon(f));
+}
+/* ---- Dólar BNA vendedor ---- */
+const COT_BNA_LS='cot_bna_v1';
+function cotNumAr(x){ return Number(String(x).replace(/\./g,'').replace(',','.')); }
+/* Lee la página del BNA (texto o HTML) y devuelve {fecha:'AAAA-MM-DD', hora, compra, venta} del Dólar U.S.A billete. */
+function cotParseBnaHtml(html){
+  const t=String(html||'').replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;|\|/g,' ').replace(/\s+/g,' ');
+  const ini=t.search(/Cotizaci[oó]n\s+Billetes/i); const zona=ini>=0?t.slice(ini):t;
+  const m=/(\d{2})\/(\d{2})\/(\d{4})[\s\S]{0,160}?D[oó]lar\s+U\.?S\.?A\.?\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/i.exec(zona);
+  if(!m) return null;
+  const compra=cotNumAr(m[4]), venta=cotNumAr(m[5]); if(!(venta>0) || !(compra>0) || venta<compra) return null;
+  const h=/Hora\s+Actualizaci[oó]n:?\s*(\d{1,2}:\d{2})/i.exec(zona);
+  return { fecha:m[3]+'-'+m[2]+'-'+m[1], hora:h?h[1]:'', compra, venta };
+}
+async function cotFetchBna(){
+  const errs=[];
+  try{   // 1) función de Supabase que lee la página del BNA (el navegador no puede leerla directo)
+    if(typeof sb!=='undefined' && sb && sb.functions){
+      const { data, error } = await sb.functions.invoke('cotizacion-bna');
+      if(!error && data && Number(data.venta)>0) return { venta:Number(data.venta), compra:Number(data.compra)||null, fecha:data.fecha||cotHoyISO(), hora:data.hora||'', fuente:'BNA' };
+      errs.push('función cotizacion-bna no disponible');
+    }
+  }catch(e){ errs.push('función cotizacion-bna no disponible'); }
+  try{   // 2) respaldo: dolarapi.com publica la cotización oficial del Banco Nación
+    const ctl=(typeof AbortController!=='undefined')?new AbortController():null; const to=ctl?setTimeout(()=>ctl.abort(),12000):null;
+    try{
+      const res=await fetch('https://dolarapi.com/v1/dolares/oficial',{signal:ctl?ctl.signal:undefined}); if(!res.ok) throw new Error('respondió '+res.status);
+      const j=await res.json(); const venta=Number(j.venta); if(!(venta>0)) throw new Error('sin datos');
+      let fecha=cotHoyISO(); try{ if(j.fechaActualizacion) fecha=new Date(j.fechaActualizacion).toLocaleDateString('en-CA',{timeZone:'America/Argentina/Buenos_Aires'}); }catch(e){}
+      return { venta, compra:Number(j.compra)||null, fecha, hora:'', fuente:'BNA (vía dolarapi.com)' };
+    } finally { if(to) clearTimeout(to); }
+  }catch(e){ errs.push('dolarapi: '+((e&&e.name==='AbortError')?'tardó demasiado':((e&&e.message)||'error'))); }
+  throw new Error(errs.join(' · '));
+}
+function cotAplicarBna(b){ const f=state.cot.f; f.tc=String(b.venta).replace('.',','); f.tcFecha=b.fecha||cotHoyISO(); f.tcFuente=b.fuente||'BNA'; }
+function cotCargarBna(force){
+  const c=state.cot;
+  if(c.bnaLoading && c._bnaP) return c._bnaP;
+  let cache=c.bna; if(!cache){ try{ cache=JSON.parse(localStorage.getItem(COT_BNA_LS)||'null'); }catch(e){} }
+  if(!force && cache && cache.dia===cotHoyISO() && cache.venta>0){ c.bna=cache; cotAplicarBna(cache); cotRender(); return Promise.resolve(); }
+  c.bnaLoading=true; c.bnaError=''; cotRender();
+  c._bnaP=(async()=>{
+    try{ const r=await cotFetchBna(); c.bna=Object.assign({},r,{dia:cotHoyISO()}); try{ localStorage.setItem(COT_BNA_LS,JSON.stringify(c.bna)); }catch(e){} cotAplicarBna(c.bna); }
+    catch(e){ c.bnaError='No pude traer el dólar BNA vendedor ('+((e&&e.message)||'error')+'). Cargalo a mano en el campo.'; }
+    c.bnaLoading=false; c._bnaP=null; cotRender();
+  })();
+  return c._bnaP;
+}
+function cotBnaInfoHtml(){
+  const c=state.cot, f=c.f; if(f.moneda!=='USD_BNA') return '';
+  const b=c.bna, tc=cgParseNum(f.tc);
+  let txt;
+  if(c.bnaLoading) txt='<span class="spin">⟳</span> Buscando el dólar BNA vendedor de hoy...';
+  else if(c.bnaError && !(tc>0)) txt='⚠ '+esc(c.bnaError);
+  else if(tc>0) txt='💵 Dólar BNA vendedor '+esc(cotMoneyTxt(tc,'ARS'))+(f.tcFecha?' al '+esc(cotFechaCorta(f.tcFecha)):'')+(b&&b.hora&&f.tcFuente&&f.tcFuente!=='manual'?' ('+esc(b.hora)+' hs)':'')+' — '+(f.tcFuente==='manual'?'cargado a mano':'fuente '+esc(f.tcFuente||'BNA'))+'. Cargás el precio en dólares y toda la cotización se muestra en pesos a este valor.';
+  else txt='Sin dólar BNA vendedor todavía.';
+  return '<div style="font-size:12px;margin-top:8px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+txt+' <button class="btn" style="padding:3px 9px;font-size:11.5px;" data-action="cot-bna">↻ Traer de nuevo del BNA</button></div>';
 }
 function buildCotizador(){
   const c=state.cot, f=c.f;
@@ -1375,7 +1452,7 @@ function buildCotizador(){
   const input=(k,ph,extra)=>'<input class="cot-field" data-field="'+k+'" type="text" inputmode="decimal" value="'+esc(f[k])+'" placeholder="'+esc(ph||'')+'" style="'+inp+'" '+(extra||'')+' />';
   const sel=(k,opts)=>'<select class="cot-field" data-field="'+k+'" style="'+inp+'background:var(--field);">'+opts.map(o=>'<option value="'+o[0]+'" '+(String(f[k])===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
   const secT=t=>'<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 6px;">'+t+'</div>';
-  const monLab=f.moneda==='USD'?'USD':'$';
+  const monLab=f.moneda==='ARS'?'$':'USD';
   const est=cotEstado();
   const t=c.tasas[f.ref];
 
@@ -1388,13 +1465,14 @@ function buildCotizador(){
   html+='<div class="card pad" style="margin-bottom:12px;"><div class="stat-label" style="margin-bottom:4px;">1. Operación</div><div style="'+grid+'">'+
     fld('Cliente',input('cliente','Ej: Pedro Sanchez'))+fld('Proveedor',input('proveedor','Ej: Colcar'))+fld('Bien',input('bien','Ej: Sprinter'))+
     fld('Cantidad de unidades',input('cantidad','1'))+
-    fld('Moneda',sel('moneda',[['ARS','Pesos'],['USD','Dólar billete']]))+
+    fld('Moneda',sel('moneda',[['ARS','Cotización en pesos'],['USD','Cotización en dólares'],['USD_BNA','Dólares → pesos (dólar BNA vendedor)']]))+
+    (f.moneda==='USD_BNA'?fld('Dólar BNA vendedor ($)',input('tc','Ej: 1570')):'')+
     fld('IVA',sel('iva',[['0.21','21%'],['0.105','10,5%'],['0','Exento']]))+
     fld('Precio sin IVA ('+monLab+', por unidad)',input('precio','Ej: 50000000'))+
     fld('Precio con IVA (se calcula solo)','<div id="cot-precio-iva" style="padding:8px 10px;border:1px dashed var(--border2);border-radius:6px;font-size:13px;background:var(--soft);font-weight:600;">'+esc(cotPrecioIvaTxt())+'</div>')+
     (prend?fld('LTV (% del precio total c/IVA a financiar)',input('ltv','Ej: 80'))+
       fld('Monto a financiar (se calcula solo)','<div id="cot-monto-fin" style="padding:8px 10px;border:1px dashed var(--border2);border-radius:6px;font-size:13px;background:var(--soft);font-weight:600;">'+esc(cotMontoFinTxt())+'</div>'):'')+
-  '</div>'+
+  '</div>'+cotBnaInfoHtml()+
   secT('2. Tasa')+'<div style="'+grid+'">'+
     fld('Tipo de tasa',sel('tipoTasa',[['Variable','Variable'],['Fija','Fija']]))+
     (f.tipoTasa==='Variable'
@@ -1481,7 +1559,7 @@ function cotArmarPdf(datos){
   doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.text('Conformidad del Cliente o apoderado',170,y+12,{align:'center'}); doc.text('Gerente',(330+W-40)/2,y+12,{align:'center'});
   doc.setFont(undefined,'bold'); doc.text(String(datos.f.cliente).trim(),170,y+25,{align:'center'});
   if(prend && datos.r.cronograma){
-    doc.addPage(); const mo=x=>cotMoneyTxt(x,datos.f.moneda);
+    doc.addPage(); const mo=x=>cotMoneyTxt(x,cotMon(datos.f));
     doc.setTextColor(30,30,30); doc.setFont(undefined,'bold'); doc.setFontSize(11);
     const tit='Desarrollo del Préstamo Prendario - sistema francés '+(datos.f.tipoTasa==='Variable'?'tasa variable':'tasa fija')+' - No válido como documento oficial';
     const tl=doc.splitTextToSize(tit,W-80); doc.text(tl,40,60); const y0=60+tl.length*13+4;
@@ -1504,7 +1582,7 @@ function cotDatosPdf(){
   return { f:{...c.f}, v:est.v, r:est.r, filas:est.filas, fecha:cotHoyISO(), referencia:String(c.f.referencia||'').trim() };
 }
 function cotNombrePdf(d){ const [y,m,dd]=d.fecha.split('-'); return (d.v&&d.v.tipo==='PRENDARIO'?'Cotizacion_Prendario_':'Cotizacion_')+sanitizeFilename(String(d.f.cliente).trim().replace(/\s+/g,'_'))+'_'+dd+m+y+'.pdf'; }
-function cotHash(d){ return JSON.stringify([d.f.cliente,d.f.proveedor,d.f.bien,d.f.cantidad,d.f.moneda,d.f.iva,d.f.precio,d.f.tipoTasa,d.f.ref,d.v.refValor,d.f.spread,d.f.tnaFija,d.f.plazo,d.f.deposito,d.f.opcion,d.f.gastos,d.f.validez,d.fecha,d.f.tipo,d.f.ltv]); }
+function cotHash(d){ return JSON.stringify([d.f.cliente,d.f.proveedor,d.f.bien,d.f.cantidad,d.f.moneda,d.f.tc,d.f.iva,d.f.precio,d.f.tipoTasa,d.f.ref,d.v.refValor,d.f.spread,d.f.tnaFija,d.f.plazo,d.f.deposito,d.f.opcion,d.f.gastos,d.f.validez,d.fecha,d.f.tipo,d.f.ltv]); }
 function cotProximaRef(){ const nums=state.cot.lista.map(q=>Number(q.referencia)).filter(isFinite); return nums.length? Math.max(...nums)+1 : null; }
 
 async function cotGuardarDb(d, silencioso){
@@ -1512,7 +1590,7 @@ async function cotGuardarDb(d, silencioso){
   if(c.lastHash===h) return { ok:true, ref:c.lastRef, repetida:true };
   if(typeof sb==='undefined' || !sb) return { ok:false, error:'Sin conexión a la base.' };
   let ref=d.referencia? Number(d.referencia) : cotProximaRef();
-  const row={ tipo:d.v.tipo, ltv_pct:d.v.tipo==='PRENDARIO'?d.v.ltv:null, referencia: isFinite(ref)?ref:null, cliente:d.f.cliente.trim(), proveedor:d.f.proveedor.trim(), bien:d.f.bien.trim(), cantidad:d.v.cantidad, moneda:d.f.moneda, iva:d.v.iva,
+  const row={ tipo:d.v.tipo, ltv_pct:d.v.tipo==='PRENDARIO'?d.v.ltv:null, referencia: isFinite(ref)?ref:null, cliente:d.f.cliente.trim(), proveedor:d.f.proveedor.trim(), bien:d.f.bien.trim(), cantidad:d.v.cantidad, moneda:cotMon(d.f), iva:d.v.iva,
     precio_unitario:d.v.precio, tipo_tasa:d.f.tipoTasa, ref_tasa:d.f.tipoTasa==='Variable'?d.f.ref:null, ref_valor:d.f.tipoTasa==='Variable'?d.v.refValor:null,
     ref_fecha:d.f.tipoTasa==='Variable'?(c.tasas[d.f.ref].fecha||null):null, spread:d.f.tipoTasa==='Variable'?d.v.spread:null, tna:d.v.tna, plazo:d.v.plazo,
     deposito_pct:d.v.dep, opcion_pct:d.v.tipo==='PRENDARIO'?null:d.v.opc, gastos_pct:d.v.gas, canon:d.r.canon, datos:{ f:d.f, fecha:d.fecha, referencia:d.referencia } };
@@ -1566,6 +1644,7 @@ function cotOnClick(action,btn){
   if(action==='cot-pdf') cotDescargar();
   else if(action==='cot-guardar') cotGuardar();
   else if(action==='cot-tasas') cotCargarTasas(true);
+  else if(action==='cot-bna') cotCargarBna(true);
   else if(action==='cot-pdf-guardada') cotPdfGuardada(Number(btn.dataset.idx));
   else if(action==='cot-tipo'){ c.f.tipo=btn.dataset.value; c.lastHash=''; cotRender(); }
   else if(action==='cot-nueva'){ c.f=cotBlank(); c.lastHash=''; c.lastRef=null; state.error=''; state.notice=''; cotRender(); }
@@ -1575,7 +1654,7 @@ function cotOnInput(e){
   if(el.tagName==='SELECT') return true;
   const c=state.cot;
   if(el.id==='cot-refvalor'){ const k=el.dataset.ref; c.tasas[k]={valor:el.value,fecha:c.tasas[k].fecha,fuente:'manual'}; }
-  else c.f[el.dataset.field]=el.value;
+  else { c.f[el.dataset.field]=el.value; if(el.dataset.field==='tc') c.f.tcFuente='manual'; }
   cotRefreshLive();
   const tn=document.getElementById('cot-tna');
   if(tn && c.f.tipoTasa==='Variable'){ const v=cgParseNum(c.tasas[c.f.ref].valor)+cgParseNum(c.f.spread); tn.innerHTML=isFinite(v)?'TNA resultante: <b>'+cotPctTxt(v)+'%</b> ('+c.f.ref+' + spread)':''; }
@@ -1583,7 +1662,7 @@ function cotOnInput(e){
 }
 function cotOnChange(e){
   const el=e.target; if(!el.classList||!el.classList.contains('cot-field')) return false;
-  if(el.tagName==='SELECT'){ state.cot.f[el.dataset.field]=el.value; cotRender(); }
+  if(el.tagName==='SELECT'){ state.cot.f[el.dataset.field]=el.value; cotRender(); if(el.dataset.field==='moneda' && el.value==='USD_BNA') cotCargarBna(false); }
   else if(el.id==='cot-refvalor'){ cotSaveTasas(); }
   return true;
 }
@@ -1765,7 +1844,7 @@ function vzDiaTxt(iso){ // "2026-11-06" -> "6 de noviembre"
 }
 
 // ---------- campos que se pueden corregir ----------
-function vzCampo(text){
+function vzCampo(text,f){
   const t=vzNorm(text), tk=t.split(' ');
   const has=w=>tk.indexOf(w)>=0, rx=r=>r.test(t);
   const num=vzParseNum(text,'pct')!==null;
@@ -1781,6 +1860,8 @@ function vzCampo(text){
   if(has('plazo')||has('meses')||has('cuotas')||has('anos')) return 'plazo';
   if(has('precio')||has('importe')||has('monto')||has('valor')||has('costo')) return 'precio';
   if(has('iva')||has('alicuota')) return 'iva';
+  if(f && f.moneda==='USD_BNA' && num && (has('dolar')||has('dolares')||has('bna')||has('cambio')) && !has('moneda')) return 'tc';
+  if(rx(/\b(tipo de cambio|valor del dolar|cotizacion del dolar|precio del dolar|cotizacion bna|dolar bna)\b/) && num) return 'tc';
   if(has('moneda')||has('dolares')||has('dolar')||has('pesos')) return 'moneda';
   if(has('cantidad')||has('unidades')||has('unidad')) return 'cantidad';
   if(has('cliente')||has('titular')||has('comprador')) return 'cliente';
@@ -1790,7 +1871,7 @@ function vzCampo(text){
   return null;
 }
 /* comandos que valen en cualquier momento */
-function vzComando(text,libre){
+function vzComando(text,libre,f){
   const t=vzNorm(text); if(!t) return null;
   const exact=(re)=>new RegExp('^('+re+')$').test(t), pref=(re)=>new RegExp('^('+re+')( |$)').test(t);
   const m=libre?exact:pref;
@@ -1799,7 +1880,7 @@ function vzComando(text,libre){
   if(m('volver|volve|volvamos|atras|anterior|paso anterior|retroceder|retrocede|pregunta anterior|volver atras')) return {cmd:'back'};
   if(m('pausa|pausar|pausalo|pausame|espera|esperame|aguarda|aguardame|un momento|un segundito|un segundo|momento|stop|detenete|detener')) return {cmd:'pause'};
   const fx=/^(?:corregir|corregi|corrige|corregime|cambiar|cambia|cambiame|cambiemos|modificar|modifica|modificame|editar|edita|rehacer|rehace|equivoque|me equivoque en|esta mal|esta mal el|esta mal la|quiero cambiar|quiero corregir|quiero modificar|necesito cambiar|necesito corregir|podes cambiar|podes corregir|podrias cambiar|corregir el|corregir la)\b/;
-  if(fx.test(t)){ const campo=vzCampo(t.replace(fx,' ')); if(libre && !campo) return null; return {cmd:'fix', field:campo}; }
+  if(fx.test(t)){ const campo=vzCampo(t.replace(fx,' '),f); if(libre && !campo) return null; return {cmd:'fix', field:campo}; }
   return null;
 }
 
@@ -1867,9 +1948,11 @@ function vzParseMoneda(text){
   const tk=vzToks(text), j=tk.join(' ');
   const D=tk.some(t=>['dolar','dolares','usd','verdes','verde','billete','billetes','u$s','us$','dollar','dollars','dolarez'].indexOf(t)>=0)||/\bu s d\b/.test(j);
   const P=tk.some(t=>['peso','pesos','ars','argentinos','argentino','moneda nacional','pesito','pesitos'].indexOf(t)>=0)||/\bmoneda nacional\b/.test(j);
+  const BNA=/\b(bna|b n a|banco nacion|nacion|vendedor|oficial|convertid[oa]s?|conversion|a pesos)\b/.test(j);
+  if(D&&BNA) return {ok:true,value:'USD_BNA'};
   if(D&&!P) return {ok:true,value:'USD'}; if(P&&!D) return {ok:true,value:'ARS'};
-  if(D&&P) return {ok:false,msg:'Elegí una sola moneda: pesos o dólares.'};
-  return {ok:false,msg:'Decime si es en pesos o en dólares.'};
+  if(D&&P) return {ok:false,msg:'Elegí una: pesos, dólares, o dólares convertidos a pesos al BNA vendedor.'};
+  return {ok:false,msg:'Decime si es en pesos, en dólares, o en dólares al BNA vendedor.'};
 }
 function vzRefDe(tk){
   const jj=tk.join(' ');
@@ -1904,23 +1987,26 @@ function vzParseCantidad(text){
 // ---------- motor de diálogo ----------
 function vzNum2(v){ return String(Math.round(v*10000)/10000).replace('.',','); }
 function vzSteps(f,st){
-  const prend=f.tipo==='PRENDARIO', s=['tipo','cliente','proveedor','bien','cantidad','moneda','iva','precio'];
+  const prend=f.tipo==='PRENDARIO', s=['tipo','cliente','proveedor','bien','cantidad','moneda'];
+  if(f.moneda==='USD_BNA' && st.tcNecesita()) s.push('tc');
+  s.push('iva','precio');
   if(prend) s.push('ltv');
   s.push('tipoTasa');
   if(f.tipoTasa==='Variable'){ s.push('ref'); if(st.refNecesitaValor(f.ref)) s.push('refValor'); s.push('spread'); } else s.push('tnaFija');
   s.push('plazo','deposito'); if(!prend) s.push('opcion'); s.push('gastos');
   return s;
 }
-const VZ_NOMBRE={tipo:'el tipo de operación',cliente:'el cliente',proveedor:'el proveedor',bien:'el bien',cantidad:'la cantidad',moneda:'la moneda',iva:'el IVA',precio:'el precio',ltv:'el porcentaje a financiar',tipoTasa:'el tipo de tasa',ref:'la tasa de referencia',refValor:'el valor de la tasa de referencia',spread:'el spread',tnaFija:'la tasa fija',plazo:'el plazo',deposito:'el depósito en garantía',opcion:'la opción de compra',gastos:'los gastos de estructuración'};
+const VZ_NOMBRE={tc:'el dólar BNA vendedor',tipo:'el tipo de operación',cliente:'el cliente',proveedor:'el proveedor',bien:'el bien',cantidad:'la cantidad',moneda:'la moneda',iva:'el IVA',precio:'el precio',ltv:'el porcentaje a financiar',tipoTasa:'el tipo de tasa',ref:'la tasa de referencia',refValor:'el valor de la tasa de referencia',spread:'el spread',tnaFija:'la tasa fija',plazo:'el plazo',deposito:'el depósito en garantía',opcion:'la opción de compra',gastos:'los gastos de estructuración'};
 function vzPregunta(id,st){
-  const f=st.f, mon=f.moneda==='USD'?'dólares':'pesos';
+  const f=st.f, mon=f.moneda==='ARS'?'pesos':'dólares';
   switch(id){
     case 'tipo': return '¿Qué vamos a cotizar: un leasing o un préstamo prendario?';
     case 'cliente': return '¿Cómo se llama el cliente?';
     case 'proveedor': return '¿Quién es el proveedor?';
     case 'bien': return '¿Qué bien se va a financiar? Por ejemplo, una Sprinter.';
     case 'cantidad': return '¿Cuántas unidades?';
-    case 'moneda': return '¿La operación es en pesos o en dólares?';
+    case 'moneda': return '¿La cotización es en pesos, en dólares, o en dólares convertidos a pesos al dólar BNA vendedor?';
+    case 'tc': return st.manualTc ? '¿Qué dólar BNA vendedor querés usar? Decímelo en pesos.' : 'No pude traer el dólar BNA vendedor. Decime a cuánto está, en pesos.';
     case 'iva': return '¿Qué IVA aplica? Veintiuno por ciento, diez coma cinco por ciento, o exento.';
     case 'precio': return '¿Cuál es el precio sin IVA'+(Number(f.cantidad)>1?', por unidad':'')+'? Decímelo en '+mon+'.';
     case 'ltv': return '¿Qué porcentaje del precio con IVA se financia?';
@@ -1938,7 +2024,8 @@ function vzPregunta(id,st){
 }
 function vzRefNom(r){ return r==='BADLAR'?'Badlar':'Tamar'; }
 const VZ_SOFT={ // alertas de “¿seguro?” para valores raros
-  precio:(v,f)=> (f.moneda==='USD'? v<1000 : v<100000) ? 'muy bajo' : (v>1e10?'muy alto':null),
+  tc:(v)=> (v<100||v>20000)?'raro':null,
+  precio:(v,f)=> (f.moneda!=='ARS'? v<1000 : v<100000) ? 'muy bajo' : (v>1e10?'muy alto':null),
   ltv:(v)=> v<30?'muy bajo':null,
   deposito:(v)=> v>40?'muy alto':null,
   opcion:(v)=> v>50?'muy alto':null,
@@ -1958,11 +2045,12 @@ function vzParsePaso(id,text,st){
       if(s.length>80) return {ok:false,msg:'Es muy largo, resumilo un poco.'};
       return {ok:true,set:{[id]:s},echo:s+'.',texto:true}; }
     case 'cantidad': r=vzParseCantidad(text); if(!r.ok) return r; return {ok:true,set:{cantidad:String(r.value)},echo:(r.value===1?'Una unidad.':vzPalabras(r.value,true)+' unidades.'),val:r.value};
-    case 'moneda': r=vzParseMoneda(text); if(!r.ok) return r; return {ok:true,set:{moneda:r.value},echo:r.value==='USD'?'En dólares.':'En pesos.'};
+    case 'moneda': r=vzParseMoneda(text); if(!r.ok) return r; return {ok:true,set:{moneda:r.value},echo:r.value==='USD'?'En dólares.':(r.value==='USD_BNA'?'En dólares, convertidos a pesos al dólar BNA vendedor.':'En pesos.')};
+    case 'tc': { r=vzParseMonto(text,'ARS'); if(!r.ok) return r; if(r.value<10||r.value>1e6) return {ok:false,msg:'Ese valor no parece un dólar.'}; return {ok:true,set:{tc:vzNum2(r.value)},tcManual:true,echo:'Dólar BNA vendedor: '+vzDinero(r.value,'ARS')+'.',val:r.value}; }
     case 'iva': r=vzParseIva(text); if(!r.ok) return r;
       return {ok:true,set:{iva:r.value===0?'0':(r.value===10.5?'0.105':'0.21')},echo:r.value===0?'Exento de IVA.':'IVA del '+vzPct(r.value)+'.'};
     case 'precio': r=vzParseMonto(text,f.moneda); if(!r.ok) return r;
-      return {ok:true,set:{precio:vzNum2(r.value)},echo:'Precio sin IVA'+(Number(f.cantidad)>1?' por unidad':'')+': '+vzDinero(r.value,f.moneda)+'.',val:r.value};
+      return {ok:true,set:{precio:vzNum2(r.value)},echo:'Precio sin IVA'+(Number(f.cantidad)>1?' por unidad':'')+': '+vzDinero(r.value,f.moneda==='ARS'?'ARS':'USD')+'.',val:r.value};
     case 'ltv': case 'deposito': case 'opcion': case 'gastos': {
       r=vzParsePct(text,{cero:id!=='ltv'}); if(!r.ok) return r;
       if(id==='ltv'){ if(!(r.value>0&&r.value<=100)) return {ok:false,msg:'El porcentaje a financiar tiene que ser mayor a cero y hasta cien.'}; }
@@ -1987,6 +2075,7 @@ function vzParsePaso(id,text,st){
 function vzPctPuntos(x){ const ent=Math.abs(x-Math.round(x))<1e-9; return (ent?vzPalabras(Math.round(x),true):vzPct(x).replace(/ por ciento$/,''))+(x===1?' punto':' puntos'); }
 function vzNuevoDialogo(f,hooks){
   const st={ f:f, done:{}, hist:[], pend:null, fails:0, fase:'preguntando', paso:null, manualRef:{}, refElegida:false,
+    tcNecesita:()=>{ if(st.manualTc) return true; return !(Number(String(st.f.tc==null?'':st.f.tc).replace(',','.'))>0); },
     refNecesitaValor:(ref)=>{ if(st.manualRef[ref]) return true; const t=hooks.tasa(ref); return !(t && Number(String(t.valor).replace(',','.'))>0); }, hooks:hooks };
   return st;
 }
@@ -1998,9 +2087,10 @@ function vzProximo(st){
 function vzResumenRevision(st){
   const est=st.hooks.calc(); const f=st.f;
   if(!est.ok) return {ok:false,errores:est.errores};
-  const v=est.v, r=est.r, mon=f.moneda, prend=v.tipo==='PRENDARIO', out=[];
+  const v=est.v, r=est.r, mon=f.moneda==='USD'?'USD':'ARS', prend=v.tipo==='PRENDARIO', out=[];
   out.push('Listo, esto es lo que armé.');
   out.push('Cliente: '+f.cliente+'. Proveedor: '+f.proveedor+'. Bien: '+(v.cantidad>1?vzPalabras(v.cantidad,true)+' unidades de ':'')+f.bien+'.');
+  if(f.moneda==='USD_BNA') out.push('Cotización en pesos, convertida desde dólares al dólar BNA vendedor de '+vzDinero(v.tc,'ARS')+'.');
   if(f.tipoTasa==='Variable') out.push('Tasa elegida: variable, '+vzRefNom(f.ref)+' más un spread de '+vzPctPuntos(v.spread)+'.');
   else out.push('Tasa elegida: fija, de '+vzPct(v.tna)+'.');
   if(prend){
@@ -2029,6 +2119,8 @@ function vzSiguiente(st,prefijo){
 function vzAplicar(st,id,res){
   Object.assign(st.f,res.set||{});
   if(res.tasaManual){ st.manualRef[st.f.ref]=true; st.hooks.setTasaManual(st.f.ref,res.tasaManual); }
+  if(res.tcManual){ st.manualTc=true; if(st.hooks.setTcManual) st.hooks.setTcManual(res.set.tc); }
+  if(id==='moneda'){ if(st.f.moneda==='USD_BNA'){ st.done.tc=false; } else { st.manualTc=false; } }
   st.done[id]=true; if(st.hist[st.hist.length-1]!==id) st.hist.push(id);
   if(id==='tipo'){ // cambiar de tipo obliga a pedir lo propio del nuevo tipo
     if(st.f.tipo==='PRENDARIO'){ if(!st.f.ltv) st.done.ltv=false; } else { if(!st.f.opcion) st.done.opcion=false; }
@@ -2046,7 +2138,7 @@ function vzResponder(st,alts){
   if(!alts.length) return {say:['No escuché nada.'],reask:true};
   const text=alts[0];
   const libre=(st.fase==='preguntando' && ['cliente','proveedor','bien'].indexOf(st.paso)>=0);
-  const cmd=vzComando(text,libre);
+  const cmd=vzComando(text,libre,st.f);
   if(cmd){
     if(cmd.cmd==='cancel') return {say:['Listo, cancelo el asistente. Los datos quedaron cargados en pantalla.'],cancelar:true};
     if(cmd.cmd==='pause') return {say:['Pausa. Tocá continuar cuando quieras seguir.'],pausar:true};
@@ -2095,7 +2187,7 @@ function vzResponder(st,alts){
     return {say:['No te entendí. ¿Querés armar otra cotización? Decí sí o no.'],reask:true};
   }
   if(st.fase==='cual'){
-    const campo=vzCampo(text);
+    const campo=vzCampo(text,st.f);
     if(campo) return vzCorregir(st,campo,alts);
     if(vzSiNo(text)==='no'){ st.fase=st.faseAntes||'revision'; st.faseAntes=null; return {say:st.fase==='revision'?['Está bien. Entonces no genero nada por ahora. Decí sí cuando quieras generar el PDF.']:['Está bien, seguimos.',vzPregunta(st.paso||'tipo',st)],reask:true}; }
     return {say:['No entendí cuál. Decime, por ejemplo: plazo, IVA, precio o tasa.'],reask:true};
@@ -2104,7 +2196,7 @@ function vzResponder(st,alts){
     const yn=vzSiNo(text);
     if(yn==='si'){ const e=st.hooks.calc(); if(!e.ok) return vzSiguiente(st,['Todavía falta un dato.']); return {say:['Perfecto, genero el PDF.'],generar:true}; }
     if(yn==='no'){ st.faseAntes='revision'; st.fase='cual'; return {say:['¿Qué dato querés corregir?'],reask:true}; }
-    const campo=vzCampo(text);
+    const campo=vzCampo(text,st.f);
     if(campo) return vzCorregir(st,campo,alts);
     return {say:['No te entendí. Decí sí para generar el PDF, o decime qué dato querés corregir.'],reask:true};
   }
@@ -2126,15 +2218,21 @@ function vzResponder(st,alts){
   if(id==='plazo' && res.ambiguo){ st.pend={tipo:'plazo',id:id,n:res.ambiguo,res:res}; return {say:['¿'+vzPalabras(res.ambiguo,true)+' meses o '+vzPalabras(res.ambiguo,true)+(res.ambiguo===1?' año':' años')+'?'],reask:true}; }
   // valores raros
   const sf=VZ_SOFT[id]&&res.val!==undefined?VZ_SOFT[id](res.val,st.f):null;
-  if(sf){ const q='Entendí '+(id==='precio'?vzDinero(res.val,st.f.moneda):id==='cantidad'?vzPalabras(res.val,true)+' unidades':vzPct(res.val))+', que es un valor poco común. ¿Es correcto?';
+  if(sf){ const q='Entendí '+(id==='precio'?vzDinero(res.val,st.f.moneda==='ARS'?'ARS':'USD'):(id==='tc'?vzDinero(res.val,'ARS'):id==='cantidad'?vzPalabras(res.val,true)+' unidades':vzPct(res.val)))+', que es un valor poco común. ¿Es correcto?';
     st.pend={tipo:'soft',id:id,res:res,pregunta:q}; return {say:[q],reask:true}; }
   if(res.texto) return vzPedirConfirmTexto(st,id,res);
   vzAplicar(st,id,res);
   if(id==='tipoTasa' && st.f.tipoTasa==='Variable' && res.ref){ st.refElegida=true; return {say:[res.echo],fetch:st.f.ref,esperarTasa:true}; }
   if(id==='ref'){ return {say:[res.echo],fetch:st.f.ref,esperarTasa:true}; }
+  if(id==='moneda' && st.f.moneda==='USD_BNA'){ return {say:[res.echo],fetchBna:true}; }
   return vzSiguiente(st,[res.echo]);
 }
 /* tras intentar traer la tasa */
+function vzBnaLista(st){
+  const tc=Number(String(st.f.tc==null?'':st.f.tc).replace(',','.'));
+  if(tc>0 && !st.manualTc){ const fe=st.f.tcFecha?vzDiaTxt(st.f.tcFecha):''; return vzSiguiente(st,['El dólar BNA vendedor es de '+vzDinero(tc,'ARS')+(fe?', al '+fe:'')+'.']); }
+  return vzSiguiente(st,[]);
+}
 function vzTasaLista(st){
   const t=st.hooks.tasa(st.f.ref), ok=t && Number(String(t.valor).replace(',','.'))>0;
   if(ok){
@@ -2162,7 +2260,7 @@ function vzPedirConfirmTexto(st,id,res){
 const VZ_CUE=/(?:^|\s)(mejor|ponele|ponelo|pone|pon|poner|que sea|en realidad|perdon|me equivoque|cambia|cambiame|cambiar|corregi|corregir|modifica|modificar|dije mal)(?=\s|$)/;
 function vzCruzada(st,text,alts){
   const t=vzNorm(text); if(!VZ_CUE.test(' '+t)) return null;
-  const campo=vzCampo(text); if(!campo||campo===st.paso) return null;
+  const campo=vzCampo(text,st.f); if(!campo||campo===st.paso) return null;
   const grupoTasa=['tipoTasa','ref','refValor']; if(grupoTasa.indexOf(campo)>=0&&grupoTasa.indexOf(st.paso)>=0) return null;
   if(['cliente','proveedor','bien'].indexOf(st.paso)>=0 && !/^(no )?(mejor|ponele|ponelo|pone|pon|poner|que sea|en realidad|perdon|me equivoque|cambia|cambiame|cambiar|corregi|corregir|modifica|modificar|dije mal)( |$)/.test(t)) return null;
   if(st.pend){ const p=st.pend; st.pend=null; if(p.tipo==='texto') vzAplicar(st,p.id,p.res); }
@@ -2175,6 +2273,7 @@ function vzCorregir(st,campo,alts){
   if(campo==='ref'||campo==='spread'||campo==='refValor'){ if(f.tipoTasa!=='Variable') return {say:['La tasa es fija. Si querés, cambiamos el tipo de tasa.'],reask:true}; }
   if(campo==='tnaFija' && f.tipoTasa!=='Variable') {}
   if(campo==='tnaFija' && f.tipoTasa==='Variable') return {say:['La tasa es variable. Podés corregir el spread o la referencia.'],reask:true};
+  if(campo==='tc' && f.moneda!=='USD_BNA') return {say:['El dólar BNA vendedor solo se usa cuando la cotización es en dólares convertidos a pesos.'],reask:true};
   if(campo==='ltv' && f.tipo!=='PRENDARIO') return {say:['El porcentaje a financiar solo se usa en el préstamo prendario.'],reask:true};
   if(campo==='opcion' && f.tipo==='PRENDARIO') return {say:['La opción de compra solo se usa en el leasing.'],reask:true};
   // ¿vino el valor nuevo en la misma frase? ("cambiar el plazo a 48 meses")
@@ -2196,6 +2295,7 @@ function vzCorregir(st,campo,alts){
   if(res && !(VZ_SOFT[campo]&&res.val!==undefined&&VZ_SOFT[campo](res.val,st.f))){
     vzAplicar(st,campo,res);
     if((campo==='ref'||(campo==='tipoTasa'&&res.ref))) return {say:[res.echo],fetch:st.f.ref,esperarTasa:true};
+    if(campo==='moneda' && st.f.moneda==='USD_BNA') return {say:['Corregido. '+res.echo],fetchBna:true};
     return vzSiguiente(st,['Corregido. '+res.echo]);
   }
   if(campo==='tipoTasa' || campo==='ref'){}
@@ -2214,7 +2314,8 @@ let vzEng=null, vzRec=null, vzRun=0, vzUtter=null, vzPeriodo=null;
 function vzSoporteVoz(){ return !!VZ_SR; }
 function vzHooks(){
   return { tasa:(r)=>state.cot.tasas[r], hoy:()=>cotHoyISO(), calc:()=>cotEstado(),
-    setTasaManual:(r,v)=>{ state.cot.tasas[r]={valor:v,fecha:cotHoyISO(),fuente:'manual'}; } };
+    setTasaManual:(r,v)=>{ state.cot.tasas[r]={valor:v,fecha:cotHoyISO(),fuente:'manual'}; },
+    setTcManual:(v)=>{ const f=state.cot.f; f.tc=v; f.tcFecha=cotHoyISO(); f.tcFuente='manual'; } };
 }
 /* ---- elección de voz: preferimos las voces "naturales/neuronales" (Edge, Chrome) y rioplatenses ---- */
 function vzPuntajeVoz(v){
@@ -2346,6 +2447,14 @@ async function vzProcesar(res,mi){
     await vzDecir(['Busco el valor vigente en el Banco Central.'],mi);
     await vzEsperarTasa(res.fetch); if(mi!==vzRun) return;
     const r2=vzTasaLista(vzEng); cotRender(); return vzProcesar(r2,mi);
+  }
+  if(res.fetchBna){
+    const okD=await vzDecir(res.say,mi); if(!okD) return;
+    state.cot.f.tc=''; state.cot.f.tcFecha=''; state.cot.f.tcFuente='';
+    S.estado='procesando'; S.pregunta='Busco el dólar BNA vendedor de hoy…'; vzPanel();
+    await vzDecir(['Busco el dólar del Banco Nación.'],mi);
+    try{ await cotCargarBna(true); }catch(e){} if(mi!==vzRun) return;
+    const r3=vzBnaLista(vzEng); cotRender(); return vzProcesar(r3,mi);
   }
   const okDecir=await vzDecir(res.say||[],mi); if(!okDecir) return;
   if(res.generar){ return vzGenerarPdf(mi); }
